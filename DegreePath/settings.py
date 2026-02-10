@@ -10,8 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
-import pymysql
-pymysql.install_as_MySQLdb()
+
 
 from pathlib import Path
 import os
@@ -63,7 +62,7 @@ ROOT_URLCONF = 'DegreePath.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'courses' / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [

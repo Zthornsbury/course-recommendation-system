@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ student.first_name }}'s Dashboard</title>
+    <style>
+    body {
+        font-family: Arial, sans-serif;
+        max-width: 900px;
+        margin: 20px auto;
+        padding: 20px;
+        background-color: #f5f5f5;
+    }
+    .container {
+        background-color: white;
+        padding: 30px;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+    h2 {
+        color: #003478;
+        border-bottom: 3px solid #C41E3A;
+        padding-bottom: 10px;
+    }
+    .student-info {
+        background-color: #f9f9f9;
+        padding: 15px;
+        border-left: 4px solid #C41E3A;
+        margin-bottom: 20px;
+    }
+    .student-info h3 {
+        color: #003478;
+    }
+    .info-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        border-bottom: 1px solid #eee;
+    }
+    .course-item {
+        background-color: #f9f9f9;
+        padding: 15px;
+        margin: 10px 0;
+        border-left: 4px solid #003478;
+        border-radius: 4px;
+    }
+    .course-code {
+        font-weight: bold;
+        color: #C41E3A;
+    }
+    .credits {
+        background: linear-gradient(135deg, #003478 0%, #C41E3A 100%);
+        color: white;
+        padding: 4px 10px;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+    .course-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 5px;
+    }
+    .back-button {
+        display: inline-block;
+        padding: 10px 20px;
+        background-color: #003478;
+        color: white;
+        text-decoration: none;
+        border-radius: 4px;
+        margin-bottom: 20px;
+    }
+    .back-button:hover {
+        background-color: #C41E3A;
+    }
+    .empty-state {
+        text-align: center;
+        padding: 20px;
+        color: #666;
+    }
+    .total-credits {
+        font-size: 24px;
+        font-weight: bold;
+        color: #C41E3A;
+    }
+    .summary {
+        background: linear-gradient(135deg, rgba(0,52,120,0.05) 0%, rgba(196,30,58,0.05) 100%);
+        padding: 15px;
+        border-radius: 4px;
+        margin-bottom: 20px;
+        border-left: 4px solid #C41E3A;
+    }
+</style>
+</head>
+<body>
+    <a href="/" class="back-button">← Back Home</a>
+
+    <!-- Student Information -->
+    <div class="container">
+        <h2>Student Information</h2>
+        <div class="student-info">
+            <h3 style="margin-top: 0; color: #333;">{{ student.first_name }} {{ student.last_name }}</h3>
+            <div class="info-row">
+                <strong>Student ID:</strong>
+                <span>{{ student.student_id }}</span>
+            </div>
+            <div class="info-row">
+                <strong>Major:</strong>
+                <span>{{ student.major.name }}</span>
+            </div>
+            <div class="info-row">
+                <strong>Expected Graduation:</strong>
+                <span>{% if student.expected_graduation %}{{ student.expected_graduation|date:"M d, Y" }}{% else %}Not set{% endif %}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Completed Courses -->
+    <div class="container">
+        <h2>Completed Courses ({{ completed_courses|length }})</h2>
+        {% if completed_courses %}
+            {% for completion in completed_courses %}
+                <div class="course-item">
+                    <div class="course-header">
+                        <div>
+                            <span class="course-code">{{ completion.course.course_code }}</span>
+                            - {{ completion.course.course_name }}
+                        </div>
+                        <span class="credits">{{ completion.course.credits }} credits</span>
+                    </div>
+                    <small style="color: #666;">Grade: {{ completion.grade }} | Semester: {{ completion.semester }}</small>
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state">
+                <p>No completed courses yet</p>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Recommended Courses -->
+    <div class="container">
+        <h2>Recommended for Next Semester</h2>
+        {% if recommended_courses %}
+            <div class="summary">
+                <p style="margin: 0;">
+                    <strong>Total Credits:</strong> <span class="total-credits">{{ total_credits }}</span>
+                </p>
+                <p style="margin: 10px 0 0 0; color: #555;">
+                    {{ remaining_courses }} more courses needed to complete your major
+                </p>
+            </div>
+
+            {% for course in recommended_courses %}
+                <div class="course-item">
+                    <div class="course-header">
+                        <div>
+                            <span class="course-code">{{ course.course_code }}</span>
+                            - {{ course.course_name }}
+                        </div>
+                        <span class="credits">{{ course.credits }} credits</span>
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state">
+                <p>Congratulations! You've completed all requirements for your major!</p>
+            </div>
+        {% endif %}
+    </div>
+</body>
+</html>
