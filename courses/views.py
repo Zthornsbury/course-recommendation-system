@@ -1,14 +1,38 @@
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse
-from courses.models import Student, Course, CompletedCourse
+from courses.models import Student, Course, CompletedCourse, Major
 from courses.recommender import CourseRecommender
 import datetime
-from django.shortcuts import redirect
 
 
 def index(request):
-    """Home page - student lookup"""
-    return render(request, 'courses/index.html')
+    """Home page - student lookup or creation"""
+    if request.method == 'POST':
+        # Create new student
+        student_id = request.POST.get('student_id')
+        first_name = request.POST.get('first_name')
+        last_name = request.POST.get('last_name')
+        major_id = request.POST.get('major')
+        graduation_date = request.POST.get('graduation_date')
+
+        # Get or create the major (CSC)
+        major = Major.objects.get(id=major_id) if major_id else None
+
+        # Create student
+        student = Student.objects.create(
+            student_id=student_id,
+            first_name=first_name,
+            last_name=last_name,
+            major=major,
+            expected_graduation=graduation_date if graduation_date else None
+        )
+
+        return redirect('dashboard', student_id=student_id)
+
+    # Get all majors for the form
+    majors = Major.objects.all()
+
+    return render(request, 'courses/index.html', {'majors': majors})
 
 
 def student_dashboard(request, student_id):
