@@ -1,0 +1,130 @@
+{% extends 'courses/base.html' %}
+
+{% block title %}Prerequisites - DegreePath{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        Course Prerequisites Map
+    </div>
+    <div class="card-body">
+        <p class="lead">Understand the prerequisite chain for CSC courses to plan your path effectively.</p>
+
+        <div class="alert alert-info mt-3">
+            <strong>💡 How to Read This:</strong> Each course lists the courses you must complete before enrolling.
+            Plan ahead to avoid delays in your graduation timeline.
+        </div>
+
+        {% if prereq_map %}
+
+        <!-- Search/Filter Box -->
+        <div class="mb-4 mt-4">
+            <input type="text" id="searchBox" class="form-control" placeholder="🔍 Search for a course...">
+        </div>
+
+        <!-- Prerequisites List -->
+        <div class="mt-4" id="prereqList">
+            {% for course_code, data in prereq_map.items %}
+            <div class="course-card prereq-item" data-course="{{ data.course.course_code }} {{ data.course.course_name }}">
+                <div class="row">
+                    <div class="col-md-8">
+                        <h5 style="color: #2c3e50;">{{ data.course.course_code }} - {{ data.course.course_name }}</h5>
+                        <p class="text-muted mb-2">{{ data.course.credits }} credits • {{ data.course.semester_offered }}</p>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <span class="badge bg-info text-white">Level {{ data.course.course_code|slice:"3:4" }}000</span>
+                    </div>
+                </div>
+
+                <div class="mt-3">
+                    <strong style="color: #3498db;">Prerequisites Required:</strong><br>
+                    {% if data.prerequisites %}
+                        <div class="mt-2">
+                            {% for prereq in data.prerequisites %}
+                                <span class="badge bg-secondary" style="font-size: 0.9rem; padding: 8px 12px; margin: 4px;">
+                                    {{ prereq.course_code }} - {{ prereq.course_name }}
+                                </span>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <span class="text-success">✓ No prerequisites required - can take anytime!</span>
+                    {% endif %}
+                </div>
+
+                <!-- Show what courses require THIS course -->
+                {% with required_for=data.course.is_prerequisite_for.all %}
+                {% if required_for %}
+                <div class="mt-3 pt-3" style="border-top: 1px solid #dee2e6;">
+                    <strong style="color: #e74c3c;">Required For:</strong><br>
+                    <div class="mt-2">
+                        {% for dep in required_for %}
+                            <span class="badge bg-danger" style="font-size: 0.85rem; padding: 6px 10px; margin: 4px;">
+                                {{ dep.course.course_code }}
+                            </span>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+                {% endwith %}
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Summary Stats -->
+        <div class="card mt-4" style="background: #f8f9fa;">
+            <div class="card-body">
+                <h5>📊 Quick Stats</h5>
+                <div class="row mt-3">
+                    <div class="col-md-4">
+                        <div class="info-box text-center">
+                            <h3 style="color: #3498db;">{{ prereq_map|length }}</h3>
+                            <p class="mb-0">Courses with Prerequisites</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="info-box text-center">
+                            <h3 style="color: #27ae60;">
+                                {% for course_code, data in prereq_map.items %}
+                                    {% if not data.prerequisites %}1{% endif %}
+                                {% endfor %}+
+                            </h3>
+                            <p class="mb-0">Courses with No Prerequisites</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="info-box text-center">
+                            <h3 style="color: #e74c3c;">CSC</h3>
+                            <p class="mb-0">Computer Science Major</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% else %}
+        <div class="alert alert-warning mt-3">
+            <strong>⚠️ No Prerequisites Defined</strong><br>
+            Prerequisites need to be added to the database. Contact your advisor or use the admin panel to add prerequisite relationships.
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- JavaScript for Search -->
+<script>
+document.getElementById('searchBox').addEventListener('keyup', function() {
+    const searchTerm = this.value.toLowerCase();
+    const items = document.querySelectorAll('.prereq-item');
+
+    items.forEach(item => {
+        const courseText = item.getAttribute('data-course').toLowerCase();
+        if (courseText.includes(searchTerm)) {
+            item.style.display = 'block';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+});
+</script>
+
+{% endblock %}

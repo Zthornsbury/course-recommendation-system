@@ -56,42 +56,74 @@ class CourseRecommender:
         required_courses = self._get_required_courses_for_major()
         return [c for c in required_courses if c.id not in self.completed_courses]
 
-    def get_recommendations(self, max_credits: int = 18) -> Dict:
+    def get_full_schedule(self, max_credits_per_semester=18):
         """
-        Get recommended courses for next semester
-
-        Returns:
-            {
-                'recommended': [courses],
-                'total_credits': int,
-                'reason': str
-            }
+        Generate a complete semester-by-semester schedule until graduation.
+        Returns a list of semesters with recommended courses.
         """
-        remaining_courses = self._get_remaining_courses()
+        schedule = []
+        completed = self.completed_courses.copy()
+        current_semester = 'Fall'  # Start with Fall
+        semester_count = 0
+        max_semesters = 10  # Safety limit to prevent infinite loops
+        year = 2026  # Starting year
 
-        # Filter to only courses where prerequisites are met
-        eligible_courses = [
-            course for course in remaining_courses
-            if self._has_prerequisites(course)
-        ]
+        # Get all required courses
+        all_required = set(
+            DegreeRequirement.objects
+            .filter(major=self.major)
+            .values_list('course_id', flat=True)
+        )
 
-        # Sort by course number (lower numbers = foundational)
-        eligible_courses.sort(key=lambda c: c.course_code)
+        while semester_count < max_semesters:
+            semester_count += 1
 
-        # Greedy selection: pick courses until we hit credit limit
-        recommended = []
-        total_credits = 0
+            # Check if we're done FIRST
+            if completed >= all_required:
+                break
 
-        for course in eligible_courses:
-            if total_credits + course.credits <= max_credits:
-                recommended.append(course)
-                total_credits += course.credits
+            # Get available courses for this semester
+            available_courses = Course.objects.filter(
+                id__in=all_required - completed,
+                semester_offered__in=[current_semester, 'Both']
+            )
+
+            # Filter by prerequisites
+            semester_courses = []
+            total_credits = 0
+
+            for course in available_courses:
+                if self._has_prerequisites_from_set(course, completed):
+                    if total_credits + course.credits <= max_credits_per_semester:
+                        semester_courses.append(course)
+                        total_credits += course.credits
+                        completed.add(course.id)
+
+            # Add semester to schedule if there are courses
+            if semester_courses:
+                schedule.append({
+                    'semester': f"{current_semester} {year}",
+                    'courses': semester_courses,
+                    'total_credits': total_credits
+                })
+
+            # Toggle semester and increment year
+            if current_semester == 'Fall':
+                current_semester = 'Spring'
+            else:
+                current_semester = 'Fall'
+                year += 1
 
         return {
-            'recommended': recommended,
-            'total_credits': total_credits,
-            'remaining_to_complete': len(remaining_courses) - len(recommended),
+            'schedule': schedule,
+            'total_semesters': len(schedule),  # FIXED: Use actual schedule length
+            'courses_remaining': len(all_required - completed)
         }
+
+    def _has_prerequisites_from_set(self, course, completed_set):
+        """Check if prerequisites are met from a given set of completed courses"""
+        prerequisites = self._get_prerequisites(course)
+        return prerequisites.issubset(completed_set)
 
     def get_course_details(self, course: Course) -> Dict:
         """Get detailed info about a course including prerequisites"""

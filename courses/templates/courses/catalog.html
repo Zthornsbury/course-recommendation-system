@@ -1,0 +1,131 @@
+{% extends 'courses/base.html' %}
+
+{% block title %}Course Catalog - DegreePath{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        Course Catalog
+    </div>
+    <div class="card-body">
+        <p class="lead">Browse all available courses. Click on any course for more details.</p>
+
+        <!-- Computer Science Section -->
+        <h4 class="mt-4 mb-3" style="color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px;">
+            💻 Computer Science Major Courses
+        </h4>
+        <div class="row">
+            {% for course in courses %}
+            {% if course.department == "Computer Science" %}
+            <div class="col-md-6 mb-3">
+                <div class="course-card" style="cursor: pointer;" data-bs-toggle="modal" data-bs-target="#courseModal{{ course.id }}">
+                    <h5>{{ course.course_code }} - {{ course.course_name }}</h5>
+                    <p class="text-muted mb-2">{{ course.description|truncatewords:15|default:"No description available" }}</p>
+                    <div>
+                        <span class="badge-credits">{{ course.credits }} credits</span>
+                        <span class="badge bg-info text-white">{{ course.semester_offered }}</span>
+                    </div>
+                    <small class="text-primary mt-2 d-block">Click for details →</small>
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+
+        <!-- WRIGHT Foundation Section -->
+        <h4 class="mt-5 mb-3" style="color: #2c3e50; border-bottom: 2px solid #27ae60; padding-bottom: 10px;">
+            📚 WRIGHT Foundation (General Education)
+        </h4>
+        <div class="row">
+            {% for course in courses %}
+            {% if course.department != "Computer Science" %}
+            <div class="col-md-6 mb-3">
+                <div class="course-card" style="cursor: pointer;" data-bs-toggle="modal" data-bs-target="#courseModal{{ course.id }}">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div style="flex: 1;">
+                            <h5>{{ course.course_code }} - {{ course.course_name }}</h5>
+                            <p class="text-muted mb-2">{{ course.description|truncatewords:15|default:"No description available" }}</p>
+                        </div>
+                        <span class="badge bg-success ms-2">{{ course.department }}</span>
+                    </div>
+                    <div>
+                        <span class="badge-credits">{{ course.credits }} credits</span>
+                        <span class="badge bg-info text-white">{{ course.semester_offered }}</span>
+                    </div>
+                    <small class="text-primary mt-2 d-block">Click for details →</small>
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Modals for all courses -->
+{% for course in courses %}
+<div class="modal fade" id="courseModal{{ course.id }}" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header" style="background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%); color: white;">
+                <h5 class="modal-title">{{ course.course_code }} - {{ course.course_name }}</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>Course Code:</strong> {{ course.course_code }}
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Credits:</strong> {{ course.credits }}
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>Department:</strong> {{ course.department }}
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Offered:</strong> {{ course.semester_offered }}
+                    </div>
+                </div>
+
+                <hr>
+
+                <h6 class="mt-3"><strong>Course Description:</strong></h6>
+                <p>{{ course.description|default:"No description available for this course." }}</p>
+
+                <hr>
+
+                <h6 class="mt-3"><strong>Prerequisites:</strong></h6>
+                {% if course.prerequisites.all %}
+                    <ul>
+                    {% for prereq in course.prerequisites.all %}
+                        <li>{{ prereq.prerequisite_course.course_code }} - {{ prereq.prerequisite_course.course_name }}</li>
+                    {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="text-muted">No prerequisites required</p>
+                {% endif %}
+
+                <hr>
+
+                <h6 class="mt-3"><strong>Required For:</strong></h6>
+                {% if course.is_prerequisite_for.all %}
+                    <ul>
+                    {% for dependent in course.is_prerequisite_for.all %}
+                        <li>{{ dependent.course.course_code }} - {{ dependent.course.course_name }}</li>
+                    {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="text-muted">This course is not a prerequisite for any other courses</p>
+                {% endif %}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+{% endblock %}
