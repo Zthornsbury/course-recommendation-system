@@ -39,6 +39,20 @@
                         Not set
                     {% endif %}
                 </div>
+                {% if is_behind %}
+                <div class="alert alert-danger mt-2" style="border-left: 4px solid #e74c3c; background-color: #fdf3f2; padding: 15px; border-radius: 6px;">
+                    <h5 style="color: #c0392b;">⚠️ You Are Behind Schedule</h5>
+                    <p style="margin-bottom: 6px;">
+                        Based on your current progress, you will <strong>not be able to graduate</strong>
+                        by <strong>{{ student.expected_graduation|date:"F Y" }}</strong>.
+                    </p>
+                    <p style="margin-bottom: 0;">
+                        Your realistic graduation date is:
+                        <strong style="color: #27ae60;">{{ realistic_graduation|date:"F Y" }}</strong>.
+                        See your suggested schedule below.
+                    </p>
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>

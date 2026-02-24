@@ -102,12 +102,12 @@ class CompletedCourse(models.Model):
         ('P', 'Pass'),
         ('NP', 'No Pass'),
     ]
-
+    completion_date = models.DateField(null=True, blank=True)
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='completed_courses')
     course = models.ForeignKey(Course, on_delete=models.CASCADE)
     semester = models.CharField(max_length=20)
     grade = models.CharField(max_length=2, choices=GRADE_CHOICES)
-    date_completed = models.DateField()
+    date_completed = models.DateField(auto_now_add=True)
 
     class Meta:
         unique_together = ('student', 'course')

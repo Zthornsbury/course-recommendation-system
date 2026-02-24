@@ -3,6 +3,7 @@ from django.http import JsonResponse, HttpResponse
 from courses.models import Student, Course, CompletedCourse, Prerequisite, DegreeRequirement, Major
 from courses.recommender import CourseRecommender
 import datetime
+from dateutil.relativedelta import relativedelta
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
 from reportlab.lib.units import inch
@@ -15,7 +16,6 @@ import io
 def index(request):
     """Home page - student lookup or creation"""
     if request.method == 'POST':
-        # Create new student
         student_id = request.POST.get('student_id')
         first_name = request.POST.get('first_name')
         last_name = request.POST.get('last_name')
@@ -23,26 +23,24 @@ def index(request):
         graduation_date = request.POST.get('graduation_date')
         gpa = request.POST.get('gpa')
 
-        # Get or create the major (CSC)
         major = Major.objects.get(id=major_id) if major_id else None
 
-        # Create student
-        student = Student.objects.create(
+        # Use get_or_create to avoid duplicate student_id error
+        student, created = Student.objects.get_or_create(
             student_id=student_id,
-            first_name=first_name,
-            last_name=last_name,
-            major=major,
-            expected_graduation=graduation_date if graduation_date else None,
-            gpa=gpa if gpa else None
+            defaults={
+                'first_name': first_name,
+                'last_name': last_name,
+                'major': major,
+                'expected_graduation': graduation_date if graduation_date else None,
+                'gpa': gpa if gpa else None,
+            }
         )
 
         return redirect('dashboard', student_id=student_id)
 
-    # Get all majors for the form
     majors = Major.objects.all()
-
     return render(request, 'courses/index.html', {'majors': majors})
-
 
 def student_dashboard(request, student_id):
     """Student dashboard showing completed courses and recommendations"""
@@ -52,7 +50,6 @@ def student_dashboard(request, student_id):
         action = request.POST.get('action')
 
         if action == 'update_student':
-            # Update student info
             gpa = request.POST.get('gpa')
             graduation_date = request.POST.get('graduation_date')
 
@@ -64,7 +61,6 @@ def student_dashboard(request, student_id):
             student.save()
             return redirect('dashboard', student_id=student_id)
         else:
-            # Add completed course
             course_id = request.POST.get('course_id')
             grade = request.POST.get('grade')
 
@@ -87,6 +83,29 @@ def student_dashboard(request, student_id):
     recommender = CourseRecommender(student)
     full_plan = recommender.get_full_schedule(max_credits_per_semester=18)
 
+    # ── Graduation Warning Logic ──────────────────────────────────────────────
+    is_behind = False
+    realistic_graduation = None
+
+    if student.expected_graduation:
+        # Calculate total remaining credits from the recommender plan
+        remaining_credits = sum(
+            semester['total_credits'] for semester in full_plan['schedule']
+        )
+
+        # Each semester is ~6 months, 18 max credits per semester
+        credits_per_semester = 18
+        semesters_needed = -(-remaining_credits // credits_per_semester)  # ceiling division
+        realistic_graduation = datetime.date.today() + relativedelta(months=semesters_needed * 6)
+
+        # Compare realistic date vs expected graduation date
+        expected = student.expected_graduation
+        if isinstance(expected, str):
+            expected = datetime.datetime.strptime(expected, "%Y-%m-%d").date()
+
+        is_behind = realistic_graduation > expected
+    # ─────────────────────────────────────────────────────────────────────────
+
     context = {
         'student': student,
         'completed_courses': completed_courses,
@@ -94,6 +113,9 @@ def student_dashboard(request, student_id):
         'schedule': full_plan['schedule'],
         'total_semesters': full_plan['total_semesters'],
         'courses_remaining': full_plan['courses_remaining'],
+        # Graduation warning
+        'is_behind': is_behind,
+        'realistic_graduation': realistic_graduation,
     }
 
     return render(request, 'courses/dashboard.html', context)
@@ -116,18 +138,13 @@ def get_student(request):
 def course_catalog(request):
     """Display all available courses"""
     courses = Course.objects.all().order_by('course_code')
-
-    context = {
-        'courses': courses,
-    }
-    return render(request, 'courses/catalog.html', context)
+    return render(request, 'courses/catalog.html', {'courses': courses})
 
 
 def prerequisites(request):
     """Display prerequisite relationships"""
     prerequisites = Prerequisite.objects.all().select_related('course', 'prerequisite_course')
 
-    # Group by course
     prereq_map = {}
     for prereq in prerequisites:
         if prereq.course.course_code not in prereq_map:
@@ -137,37 +154,26 @@ def prerequisites(request):
             }
         prereq_map[prereq.course.course_code]['prerequisites'].append(prereq.prerequisite_course)
 
-    context = {
-        'prereq_map': prereq_map,
-    }
-
-    return render(request, 'courses/prerequisites.html', context)
+    return render(request, 'courses/prerequisites.html', {'prereq_map': prereq_map})
 
 
 def plan_schedule(request):
     """Plan My Schedule page - student lookup"""
     majors = Major.objects.all()
-
-    context = {
-        'majors': majors,
-    }
-    return render(request, 'courses/plan_schedule.html', context)
+    return render(request, 'courses/plan_schedule.html', {'majors': majors})
 
 
 def download_schedule_pdf(request, student_id):
     """Generate and download student schedule as PDF"""
     student = get_object_or_404(Student, student_id=student_id)
 
-    # Get the schedule data
     recommender = CourseRecommender(student)
     full_plan = recommender.get_full_schedule(max_credits_per_semester=18)
 
-    # Create the PDF in memory
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter)
     elements = []
 
-    # Styles
     styles = getSampleStyleSheet()
     title_style = ParagraphStyle(
         'CustomTitle',
@@ -186,11 +192,9 @@ def download_schedule_pdf(request, student_id):
         spaceAfter=12,
     )
 
-    # Title
     title = Paragraph("DegreePath - Graduation Schedule", title_style)
     elements.append(title)
 
-    # Student info
     student_info = [
         ['Student:', f"{student.first_name} {student.last_name}"],
         ['Student ID:', student.student_id],
@@ -213,21 +217,18 @@ def download_schedule_pdf(request, student_id):
     elements.append(info_table)
     elements.append(Spacer(1, 0.3 * inch))
 
-    # Schedule by semester
     for semester_plan in full_plan['schedule']:
-        # Semester heading
         semester_heading = Paragraph(
             f"{semester_plan['semester']} — {semester_plan['total_credits']} credits",
             heading_style
         )
         elements.append(semester_heading)
 
-        # Courses table
         course_data = [['Course Code', 'Course Name', 'Credits']]
         for course in semester_plan['courses']:
             course_data.append([
                 course.course_code,
-                course.course_name[:40],  # Truncate long names
+                course.course_name[:40],
                 str(course.credits)
             ])
 
@@ -246,12 +247,9 @@ def download_schedule_pdf(request, student_id):
         elements.append(course_table)
         elements.append(Spacer(1, 0.2 * inch))
 
-    # Build PDF
     doc.build(elements)
     buffer.seek(0)
 
-    # Return as download
     response = HttpResponse(buffer, content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="DegreePath_Schedule_{student.student_id}.pdf"'
-
     return response
