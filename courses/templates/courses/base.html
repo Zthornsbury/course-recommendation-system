@@ -1,206 +1,588 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" id="html-root">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}DegreePath{% endblock %}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
     <style>
+        /* ── Light mode tokens ───────────────────────────────── */
         :root {
-            --primary-color: #2c3e50;
-            --secondary-color: #3498db;
-            --accent-color: #e74c3c;
-            --light-bg: #ecf0f1;
+            --navy:        #0f1f38;
+            --navy-mid:    #1a3257;
+            --blue:        #2563eb;
+            --blue-light:  #3b82f6;
+            --sky:         #e8f0fe;
+            --gold:        #f59e0b;
+            --red:         #ef4444;
+            --green:       #10b981;
+            --surface:     #ffffff;
+            --bg:          #f1f5f9;
+            --border:      #e2e8f0;
+            --text:        #0f172a;
+            --text-muted:  #64748b;
+            --card-bg:     #ffffff;
+            --input-bg:    #ffffff;
+            --radius:      12px;
+            --radius-sm:   8px;
+            --shadow-sm:   0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.05);
+            --shadow:      0 4px 16px rgba(0,0,0,.08), 0 2px 4px rgba(0,0,0,.04);
         }
-        
+
+        /* ── Dark mode tokens ────────────────────────────────── */
+        html.dark {
+            --navy:        #1e293b;
+            --navy-mid:    #0f172a;
+            --blue:        #3b82f6;
+            --blue-light:  #60a5fa;
+            --sky:         #1e3a5f;
+            --gold:        #f59e0b;
+            --red:         #f87171;
+            --green:       #34d399;
+            --surface:     #1e293b;
+            --bg:          #0f172a;
+            --border:      #334155;
+            --text:        #f1f5f9;
+            --text-muted:  #94a3b8;
+            --card-bg:     #1e293b;
+            --input-bg:    #273549;
+        }
+
+        /* ── Base ────────────────────────────────────────────── */
+        *, *::before, *::after { box-sizing: border-box; }
+
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: var(--light-bg);
+            font-family: 'DM Sans', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+            transition: background .3s, color .3s;
         }
-        
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(37,99,235,.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(37,99,235,.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* ── Navbar ──────────────────────────────────────────── */
         .navbar {
-            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            padding: 1rem 0;
+            background: var(--navy);
+            border-bottom: 1px solid rgba(255,255,255,.07);
+            padding: 0;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 20px rgba(0,0,0,.25);
         }
-        
+
+        .navbar-inner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 0 24px;
+            height: 72px;
+        }
+
         .navbar-brand {
-            font-size: 1.5rem;
-            font-weight: bold;
-            color: white !important;
-        }
-        
-        .nav-link {
-            color: rgba(255,255,255,0.9) !important;
-            margin: 0 10px;
-            transition: all 0.3s;
-        }
-        
-        .nav-link:hover {
-            color: white !important;
-            transform: translateY(-2px);
-        }
-        
-        .nav-link.active {
-            color: white !important;
-            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
         }
 
-        .container-main {
-            max-width: 1200px;
-            margin: 2rem auto;
-            padding: 0 20px;
-        }
-
-        .card {
-            border: none;
+        .brand-icon {
+            width: 42px;
+            height: 42px;
+            background: linear-gradient(135deg, var(--blue) 0%, #7c3aed 100%);
             border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            margin-bottom: 2rem;
-            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            flex-shrink: 0;
+            box-shadow: 0 2px 8px rgba(37,99,235,.4);
+        }
+
+        .brand-text {
+            font-family: 'DM Serif Display', serif;
+            font-size: 1.5rem;
+            color: white;
+            letter-spacing: -0.01em;
+        }
+
+        .brand-text span { color: var(--gold); }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        .nav-links a {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 14px;
+            border-radius: var(--radius-sm);
+            color: rgba(255,255,255,.7);
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all .2s;
+            white-space: nowrap;
+        }
+
+        .nav-links a:hover { color: white; background: rgba(255,255,255,.08); }
+        .nav-links a.active { color: white; background: rgba(37,99,235,.35); font-weight: 600; }
+        .nav-icon { font-size: 1rem; opacity: .85; }
+
+        .nav-logout a {
+            color: rgba(255,255,255,.55);
+            border: 1px solid rgba(255,255,255,.12);
+        }
+        .nav-logout a:hover {
+            color: white;
+            background: rgba(239,68,68,.2);
+            border-color: rgba(239,68,68,.3);
+        }
+
+        /* Dark mode toggle button */
+        .dark-toggle {
+            background: rgba(255,255,255,.1);
+            border: 1px solid rgba(255,255,255,.15);
+            color: white;
+            border-radius: var(--radius-sm);
+            padding: 6px 12px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: all .2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-left: 8px;
+        }
+
+        .dark-toggle:hover {
+            background: rgba(255,255,255,.18);
+            border-color: rgba(255,255,255,.3);
+        }
+
+        /* ── Page wrapper ────────────────────────────────────── */
+        .page-wrapper {
+            position: relative;
+            z-index: 1;
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 32px 24px 64px;
+        }
+
+        /* ── Cards ───────────────────────────────────────────── */
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            margin-bottom: 24px;
+            overflow: hidden;
+            transition: background .3s, border-color .3s;
         }
 
         .card-header {
-            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            background: linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 100%);
             color: white;
-            border-radius: 10px 10px 0 0 !important;
-            padding: 1.5rem;
-            font-size: 1.3rem;
-            font-weight: 600;
+            padding: 18px 24px;
+            font-family: 'DM Serif Display', serif;
+            font-size: 1.15rem;
+            font-weight: 400;
+            letter-spacing: -0.01em;
+            border-bottom: none;
+            border-radius: 0 !important;
         }
 
         .card-body {
-            padding: 2rem;
+            padding: 24px;
+            background: var(--card-bg);
+            color: var(--text);
+        }
+
+        /* ── Buttons ─────────────────────────────────────────── */
+        .btn {
+            font-family: 'DM Sans', sans-serif;
+            font-weight: 500;
+            border-radius: var(--radius-sm);
+            transition: all .2s;
+            letter-spacing: 0.01em;
         }
 
         .btn-primary {
-            background: var(--secondary-color);
-            border: none;
-            padding: 10px 25px;
-            border-radius: 5px;
-            transition: all 0.3s;
+            background: var(--blue);
+            border-color: var(--blue);
+            color: white;
+            padding: 9px 20px;
         }
 
         .btn-primary:hover {
-            background: #2980b9;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            background: #1d4ed8;
+            border-color: #1d4ed8;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(37,99,235,.35);
         }
 
-        .semester-plan {
-            background: #f8f9fa;
-            border-left: 4px solid var(--secondary-color);
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
-            border-radius: 5px;
-            transition: all 0.3s;
+        .btn-success { background: var(--green); border-color: var(--green); }
+        .btn-success:hover {
+            background: #059669;
+            border-color: #059669;
+            transform: translateY(-1px);
         }
 
-        .semester-plan:hover {
-            transform: translateX(5px);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        .btn-secondary {
+            background: var(--border);
+            border-color: var(--border);
+            color: var(--text);
         }
 
-        .semester-plan h3 {
-            color: var(--primary-color);
-            margin-bottom: 1rem;
+        .btn-sm { padding: 6px 14px; font-size: 0.825rem; }
+
+        /* ── Form controls ───────────────────────────────────── */
+        .form-control, .form-select {
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 9px 14px;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.9rem;
+            color: var(--text);
+            background: var(--input-bg);
+            transition: border-color .2s, box-shadow .2s, background .3s;
         }
 
-        .course-list {
-            list-style: none;
-            padding-left: 0;
+        .form-control:focus, .form-select:focus {
+            border-color: var(--blue);
+            box-shadow: 0 0 0 3px rgba(37,99,235,.12);
+            outline: none;
+            background: var(--input-bg);
+            color: var(--text);
         }
 
-        .course-list li {
-            padding: 0.5rem 0;
-            border-bottom: 1px solid #dee2e6;
-        }
-
-        .course-list li:last-child {
-            border-bottom: none;
-        }
-
-        .badge-credits {
-            background: var(--accent-color);
-            color: white;
-            padding: 0.3rem 0.7rem;
-            border-radius: 20px;
+        .form-label {
             font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 6px;
         }
 
+        /* ── Info boxes ──────────────────────────────────────── */
         .info-box {
-            background: white;
-            padding: 1rem;
-            border-radius: 8px;
-            border-left: 4px solid var(--secondary-color);
-            margin-bottom: 1rem;
+            background: var(--sky);
+            border: 1px solid rgba(37,99,235,.12);
+            border-left: 3px solid var(--blue);
+            border-radius: var(--radius-sm);
+            padding: 12px 16px;
+            margin-bottom: 10px;
+            font-size: 0.9rem;
+            color: var(--text);
+            transition: background .3s;
         }
 
         .info-label {
             font-weight: 600;
-            color: var(--primary-color);
-            margin-right: 10px;
+            color: var(--navy);
+            margin-right: 8px;
         }
 
+        html.dark .info-label { color: var(--blue-light); }
+
+        /* ── Semester plan blocks ────────────────────────────── */
+        .semester-plan {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--blue);
+            border-radius: var(--radius-sm);
+            padding: 20px 24px;
+            margin-bottom: 16px;
+            transition: all .2s;
+        }
+
+        .semester-plan:hover {
+            border-left-color: var(--gold);
+            box-shadow: var(--shadow);
+            transform: translateX(3px);
+        }
+
+        .semester-plan h3 {
+            font-family: 'DM Serif Display', serif;
+            font-size: 1.1rem;
+            font-weight: 400;
+            color: var(--navy);
+            margin-bottom: 14px;
+        }
+
+        html.dark .semester-plan h3 { color: var(--text); }
+
+        /* ── Course list ─────────────────────────────────────── */
+        .course-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .course-list li {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.9rem;
+            color: var(--text);
+        }
+
+        .course-list li:last-child { border-bottom: none; }
+
+        /* ── Badges ──────────────────────────────────────────── */
+        .badge-credits {
+            background: var(--navy);
+            color: white;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            letter-spacing: 0.03em;
+        }
+
+        /* ── Course cards (catalog) ──────────────────────────── */
         .course-card {
-            border: 1px solid #dee2e6;
-            border-radius: 8px;
-            padding: 1rem;
-            margin-bottom: 1rem;
-            transition: all 0.3s;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            margin-bottom: 16px;
+            background: var(--card-bg);
+            color: var(--text);
+            transition: all .2s;
+            cursor: pointer;
         }
 
         .course-card:hover {
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            border-color: var(--blue);
+            box-shadow: var(--shadow);
             transform: translateY(-2px);
         }
 
-        .prereq-arrow {
-            color: var(--secondary-color);
-            font-weight: bold;
-            margin: 0 10px;
+        /* ── Alerts ──────────────────────────────────────────── */
+        .alert {
+            border-radius: var(--radius-sm);
+            border: none;
+            font-size: 0.9rem;
+            padding: 14px 18px;
         }
+
+        .alert-danger  { background: #fef2f2; color: #991b1b; border-left: 4px solid var(--red); }
+        .alert-warning { background: #fffbeb; color: #92400e; border-left: 4px solid var(--gold); }
+        .alert-success { background: #f0fdf4; color: #166534; border-left: 4px solid var(--green); }
+        .alert-info    { background: var(--sky); color: var(--text); border-left: 4px solid var(--blue); }
+
+        html.dark .alert-danger  { background: #450a0a; color: #fca5a5; }
+        html.dark .alert-warning { background: #451a03; color: #fcd34d; }
+        html.dark .alert-success { background: #052e16; color: #86efac; }
+        html.dark .alert-info    { background: #1e3a5f; color: #93c5fd; }
+
+        /* ── Text helpers ────────────────────────────────────── */
+        .text-muted { color: var(--text-muted) !important; }
+        p, h1, h2, h3, h4, h5, h6, li, td, th, label { color: var(--text); }
+
+        /* ── Responsive ──────────────────────────────────────── */
+        @media (max-width: 768px) {
+            .navbar-inner { flex-wrap: wrap; height: auto; padding: 12px 16px; }
+            .page-wrapper { padding: 20px 16px 48px; }
+        }
+
+        /* ── Dark mode overrides for hardcoded colors ────────── */
+        html.dark .course-card h5,
+        html.dark .course-card p,
+        html.dark .course-card div,
+        html.dark .course-card small { color: var(--text) !important; }
+
+        html.dark h4 { color: var(--text) !important; }
+
+        html.dark [style*="color:#0f172a"],
+        html.dark [style*="color: #0f172a"] { color: var(--text) !important; }
+        html.dark [style*="color:#1e293b"]  { color: var(--text) !important; }
+        html.dark [style*="color:#64748b"]  { color: var(--text-muted) !important; }
+        html.dark [style*="color:#475569"]  { color: var(--text-muted) !important; }
+
+        html.dark [style*="background:#fff"],
+        html.dark [style*="background: #fff"] {
+            background: var(--card-bg) !important;
+            color: var(--text) !important;
+        }
+        html.dark [style*="background:#f8f9fa"],
+        html.dark [style*="background: #f8f9fa"] { background: #1e293b !important; }
+        html.dark [style*="background:#f0f4ff"],
+        html.dark [style*="background: #f0f4ff"] { background: #1a2744 !important; }
+        html.dark [style*="background:#f8fafc"] { background: #1e293b !important; }
+        html.dark [style*="border:1px solid #dee2e6"],
+        html.dark [style*="border: 1px solid #dee2e6"] { border-color: var(--border) !important; }
+        html.dark [style*="border-top:1px solid #e2e8f0"],
+        html.dark [style*="border-top: 1px solid #e2e8f0"] { border-color: var(--border) !important; }
+
+        /* ── Plan page chips in dark mode ────────────────────── */
+        /* Course pool chips */
+        html.dark .course-chip {
+            background: var(--card-bg) !important;
+            border-color: var(--border) !important;
+            color: var(--text) !important;
+        }
+        html.dark .course-chip strong { color: var(--text) !important; }
+        html.dark .course-chip span   { color: var(--text-muted) !important; }
+
+        /* Pinned slot chips */
+        html.dark .slot-chip {
+            background: var(--card-bg) !important;
+            border-color: var(--blue) !important;
+            color: var(--text) !important;
+        }
+        html.dark .slot-chip strong { color: var(--text) !important; }
+        html.dark .slot-chip span   { color: var(--text-muted) !important; }
+
+        /* Course pool background */
+        html.dark #course-pool { background: #1e293b !important; }
+
+        /* Semester slot backgrounds */
+        html.dark .semester-slot { background: #1a2744 !important; }
+
+        /* ── Modal body in dark mode ─────────────────────────── */
+        html.dark .modal-overlay > div {
+            background: var(--card-bg) !important;
+            color: var(--text) !important;
+        }
+        html.dark .modal-overlay p,
+        html.dark .modal-overlay h6,
+        html.dark .modal-overlay li,
+        html.dark .modal-overlay strong { color: var(--text) !important; }
+        html.dark .modal-overlay [style*="color:#475569"] { color: var(--text-muted) !important; }
+        html.dark .modal-overlay hr { border-color: var(--border) !important; }
+
+        /* ── Table text in dark mode ─────────────────────────── */
+        html.dark table td,
+        html.dark table th { color: var(--text) !important; }
     </style>
 </head>
 <body>
-    <!-- Navigation Bar -->
-<nav class="navbar navbar-expand-lg navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="/">
-            <svg width="30" height="30" style="vertical-align: middle; margin-right: 10px;">
-                <circle cx="15" cy="15" r="12" fill="white" opacity="0.2"/>
-                <path d="M15 5 L15 25 M5 15 L25 15" stroke="white" stroke-width="2"/>
-            </svg>
-            DegreePath
-        </a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navbarNav">
-            <ul class="navbar-nav ms-auto">
-                <li class="nav-item">
-                    <a class="nav-link {% if request.path == '/' %}active{% endif %}" href="/">🏠 Home</a>
+
+    <!-- ── Navigation ───────────────────────────────────────── -->
+    <nav class="navbar">
+        <div class="navbar-inner">
+
+            <!-- Brand -->
+            <a class="navbar-brand" href="/">
+                <div class="brand-icon">🎓</div>
+                <span class="brand-text">Degree<span>Path</span></span>
+            </a>
+
+            <!-- Links -->
+            <ul class="nav-links" id="navLinks">
+
+                <!-- Home -->
+                <li>
+                    {% if request.user.is_authenticated and request.user.student %}
+                        <a href="{% url 'dashboard' request.user.student.student_id %}"
+                           class="{% if '/student/' in request.path %}active{% endif %}">
+                            <span class="nav-icon">🏠</span> Home
+                        </a>
+                    {% else %}
+                        <a href="{% url 'login' %}">
+                            <span class="nav-icon">🏠</span> Home
+                        </a>
+                    {% endif %}
                 </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="{% url 'catalog' %}">📚 Course Catalog</a>
+
+                <!-- Catalog -->
+                <li>
+                    <a href="{% url 'catalog' %}" class="{% if request.path == '/catalog/' %}active{% endif %}">
+                        <span class="nav-icon">📚</span> Catalog
+                    </a>
                 </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="{% url 'prerequisites' %}">🔗 Prerequisites</a>
+
+                <!-- Prerequisites -->
+                <li>
+                    <a href="{% url 'prerequisites' %}" class="{% if request.path == '/prerequisites/' %}active{% endif %}">
+                        <span class="nav-icon">🔗</span> Prerequisites
+                    </a>
                 </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="{% url 'plan_schedule' %}">📅 Plan My Schedule</a>
+
+                <!-- My Schedule -->
+                <li>
+                    <a href="{% url 'schedule' %}" class="{% if request.path == '/schedule/' %}active{% endif %}">
+                        <span class="nav-icon">📅</span> My Schedule
+                    </a>
                 </li>
+
+                <!-- Plan -->
+                <li>
+                    <a href="{% url 'plan_schedule' %}" class="{% if request.path == '/plan/' %}active{% endif %}">
+                        <span class="nav-icon">⚙️</span> Plan
+                    </a>
+                </li>
+
+                <!-- Logout -->
+                {% if request.user.is_authenticated and request.user.student %}
+                <li class="nav-logout">
+                    <a href="{% url 'logout' %}">
+                        <span class="nav-icon">🚪</span> Logout
+                    </a>
+                </li>
+                {% endif %}
+
+                <!-- Dark mode toggle -->
+                <li>
+                    <button class="dark-toggle" onclick="toggleDark()" id="darkBtn">
+                        🌙 Dark
+                    </button>
+                </li>
+
             </ul>
         </div>
-    </div>
-</nav>
+    </nav>
 
-    <!-- Main Content -->
-    <div class="container-main">
+    <!-- ── Page content ──────────────────────────────────────── -->
+    <div class="page-wrapper">
         {% block content %}
         {% endblock %}
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        // ── Dark mode logic ───────────────────────────────────
+        const html   = document.getElementById('html-root');
+        const btn    = document.getElementById('darkBtn');
+
+        // Apply saved preference on page load
+        if (localStorage.getItem('theme') === 'dark') {
+            html.classList.add('dark');
+            btn.textContent = '☀️ Light';
+        }
+
+        function toggleDark() {
+            const isDark = html.classList.toggle('dark');
+            btn.textContent = isDark ? '☀️ Light' : '🌙 Dark';
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        }
+    </script>
 </body>
 </html>

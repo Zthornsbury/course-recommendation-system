@@ -1,5 +1,5 @@
 from django.db import models
-
+from django.contrib.auth.models import User
 
 class Course(models.Model):
     """Represents a course offered by the university"""
@@ -61,7 +61,7 @@ class DegreeRequirement(models.Model):
         ('REQUIRED', 'Required Course'),
         ('ELECTIVE', 'Elective'),
         ('CORE', 'Core Course'),
-        ('OPTION', 'Option Group'),
+
     ]
 
     major = models.ForeignKey(Major, on_delete=models.CASCADE, related_name='requirements', null=True, blank=True)
@@ -75,9 +75,15 @@ class DegreeRequirement(models.Model):
             return f"{self.major.name} - {self.requirement_type}"
         return f"{self.minor.name} - {self.requirement_type}"
 
-
+CONCENTRATION_CHOICES = [
+    ('', 'No Concentration'),
+    ('AI', 'Artificial Intelligence & Machine Learning'),
+    ('WEB', 'Full Stack Web Development'),
+    ('CYBER', 'Cybersecurity'),
+]
 class Student(models.Model):
     """Represents a student"""
+    user = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True)
     student_id = models.CharField(max_length=20, unique=True)
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
@@ -86,6 +92,12 @@ class Student(models.Model):
     minor = models.ForeignKey(Minor, on_delete=models.SET_NULL, null=True, blank=True)
     expected_graduation = models.DateField(null=True, blank=True)
     gpa = models.DecimalField(max_digits=3, decimal_places=2, null=True, blank=True)
+    concentration = models.CharField(  # ADD THIS
+        max_length=10,
+        choices=CONCENTRATION_CHOICES,
+        blank=True,
+        default=''
+    )
 
     def __str__(self):
         return f"{self.student_id} - {self.first_name} {self.last_name}"
@@ -108,6 +120,7 @@ class CompletedCourse(models.Model):
     semester = models.CharField(max_length=20)
     grade = models.CharField(max_length=2, choices=GRADE_CHOICES)
     date_completed = models.DateField(auto_now_add=True)
+
 
     class Meta:
         unique_together = ('student', 'course')
@@ -135,3 +148,55 @@ class ScheduleCourse(models.Model):
 
     def __str__(self):
         return f"{self.schedule.semester} - {self.course.course_code}"
+
+class StudentPreference(models.Model):
+    """Stores a student's scheduling preference"""
+    student = models.OneToOneField(Student, on_delete=models.CASCADE, related_name='preferences')
+    target_credits_per_semester = models.IntegerField(default=15)
+    priority = models.CharField(
+        max_length=20,
+        choices=[
+            ('BALANCED', 'Balanced'),
+            ('GEN_ED_FIRST', 'General Education First'),
+            ('CS_FIRST', 'CS Courses First'),
+        ],
+        default='BALANCED'
+    )
+
+    def __str__(self):
+        return f"{self.student.student_id} - preferences"
+
+class PinnedCourse(models.Model):
+    """Represents a course that a student has pinned"""
+    preference = models.ForeignKey(StudentPreference, on_delete=models.CASCADE, related_name='pinned_courses')
+    course = models.ForeignKey(Course, on_delete=models.CASCADE)
+    semester_label = models.CharField(max_length=20)
+
+    class Meta:
+        unique_together = ('preference', 'course')
+
+    def __str__(self):
+        return f"{self.course.course_code} pinned to {self.semester_label}"
+
+PRIORITY_CHOICES = [
+    ('BALANCED', 'Balanced (mix gen ed and CS)'),
+    ('GEN_ED_FIRST', 'General Education First'),
+    ('CS_FIRST', 'CS Courses First'),
+]
+
+priority = models.CharField(
+    max_length=20,
+    choices=PRIORITY_CHOICES,
+    default='BALANCED'
+)
+
+class StudentElective(models.Model):
+    """Tracks which electives a student wants to include in their schedule"""
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='electives')
+    course = models.ForeignKey(Course, on_delete=models.CASCADE)
+
+    class Meta:
+        unique_together = ['student', 'course']
+
+    def __str__(self):
+        return f"{self.student.student_id} - {self.course.course_code}"

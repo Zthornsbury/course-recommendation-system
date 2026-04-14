@@ -1,88 +1,570 @@
 {% extends 'courses/base.html' %}
-
 {% block title %}Plan My Schedule - DegreePath{% endblock %}
 
 {% block content %}
-<div class="card">
-    <div class="card-header">
-        Plan Your Path to Graduation
+
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span>📋 Schedule Preferences — {{ student.first_name }} {{ student.last_name }}</span>
+        {% if student %}
+        <a href="{% url 'dashboard' student.student_id %}" class="btn btn-sm btn-outline-primary">View Full Dashboard</a>
+        {% endif %}
     </div>
     <div class="card-body">
-        <p class="lead">Get a personalized semester-by-semester plan to complete your CSC degree on time.</p>
-        
-        <h4 class="mt-4">How It Works:</h4>
-        <div class="row mt-3">
-            <div class="col-md-4 mb-3">
-                <div class="info-box">
-                    <h5>1️⃣ Create Your Profile</h5>
-                    <p>Enter your student info and major</p>
-                </div>
-            </div>
-            <div class="col-md-4 mb-3">
-                <div class="info-box">
-                    <h5>2️⃣ Add Completed Courses</h5>
-                    <p>Tell us what you've already taken</p>
-                </div>
-            </div>
-            <div class="col-md-4 mb-3">
-                <div class="info-box">
-                    <h5>3️⃣ Get Your Plan</h5>
-                    <p>Receive a full graduation schedule</p>
-                </div>
-            </div>
+
+        <!-- Auto-fill notice — shown after electives were auto-selected -->
+        {% if elective_notice %}
+        <div class="alert alert-success mb-4" style="border-left:4px solid #10b981;">
+            <strong>✅ Electives Auto-Selected</strong><br>
+            {{ elective_notice }}
         </div>
-        
-        <hr class="my-4">
-        
-        <h4>Get Started</h4>
-        <form method="POST" action="{% url 'index' %}" class="mt-3">
+        {% endif %}
+
+        <form method="POST" id="preferences-form">
             {% csrf_token %}
-            
-            <div class="row">
-                <div class="col-md-6 mb-3">
-                    <label class="form-label">Student ID</label>
-                    <input type="text" name="student_id" class="form-control" required placeholder="e.g., 12345">
+            <input type="hidden" name="action" value="save_preferences">
+            <input type="hidden" name="student_id" value="{{ student.student_id }}">
+
+            <!-- Target Credits Slider -->
+            <div class="mb-4">
+                <label class="form-label fw-bold">🎯 TARGET CREDITS PER SEMESTER:
+                    <span id="credit-display" class="text-primary">
+                        {{ preferences.target_credits_per_semester }}
+                    </span>
+                </label>
+                <input type="range" name="target_credits" id="credit-slider"
+                       class="form-range"
+                       min="9" max="18" step="1"
+                       value="{{ preferences.target_credits_per_semester }}"
+                       oninput="document.getElementById('credit-display').textContent = this.value; refreshAllSlotCredits();">
+                <div style="position:relative; height:22px; font-size:0.75rem; color:#64748b; margin-top:4px;">
+                    <span style="position:absolute; left:0%;">9 (part-time)</span>
+                    <span style="position:absolute; left:calc(33% - 34px);">12 (full-time)</span>
+                    <span style="position:absolute; left:calc(67% - 8px);">15</span>
+                    <span style="position:absolute; right:0;">18 (max)</span>
                 </div>
-                
-                <div class="col-md-6 mb-3">
-                    <label class="form-label">Major</label>
-                    <select name="major" class="form-control" required>
-                        <option value="">-- Select Major --</option>
-                        {% for major in majors %}
-                            <option value="{{ major.id }}">{{ major.name }}</option>
+                <!-- Minimum credit note -->
+                <p class="text-muted small mt-2" style="margin-bottom:0;">
+                    Minimum 9 credits per semester required.
+                </p>
+            </div>
+
+            <!-- Priority Dropdown -->
+            <div class="mb-4">
+                <label class="form-label fw-bold">📋 COURSE PRIORITY:</label>
+                <select name="priority" class="form-control">
+                    <option value="BALANCED" {% if preferences.priority == 'BALANCED' %}selected{% endif %}>
+                        ⚖️ Balanced (mix gen ed and CS each semester)
+                    </option>
+                    <option value="GEN_ED_FIRST" {% if preferences.priority == 'GEN_ED_FIRST' %}selected{% endif %}>
+                        📚 General Education First
+                    </option>
+                    <option value="CS_FIRST" {% if preferences.priority == 'CS_FIRST' %}selected{% endif %}>
+                        💻 CS Courses First
+                    </option>
+                </select>
+            </div>
+
+            <hr>
+
+            <!-- Elective Selection -->
+            {% if all_electives %}
+            <div class="mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <label class="form-label fw-bold mb-0">📖 CHOOSE YOUR ELECTIVES:</label>
+                </div>
+
+                <!-- Elective requirement warning -->
+                {% if elective_warning %}
+                <div class="alert alert-warning mb-3" style="border-left:4px solid #f59e0b; font-size:0.88rem;">
+                    <strong>⚠️ Elective Requirement</strong><br>
+                    Your degree requires <strong>{{ elective_warning.required }} credits</strong> of electives
+                    {% if elective_warning.concentration %}({{ elective_warning.concentration }} concentration){% else %}(no concentration){% endif %}.
+                    You've selected <strong>{{ elective_warning.selected }}cr</strong> so far —
+                    you still need <strong>{{ elective_warning.needed }} more credits</strong>.<br>
+                    <span style="font-size:0.82rem; opacity:.85;">
+                        If you don't select enough, electives will be auto-chosen for you when you save.
+                    </span>
+                </div>
+                {% else %}
+                <p class="text-muted small mb-2">Select any electives you want included in your generated schedule.</p>
+                {% endif %}
+
+                <!-- Elective Search Bar -->
+                <div style="position:relative; margin-bottom:10px; max-width:420px;">
+                    <span style="position:absolute; left:12px; top:50%; transform:translateY(-50%);
+                                 font-size:0.9rem; pointer-events:none; color:var(--text-muted);">🔍</span>
+                    <input type="text"
+                           id="elective-search"
+                           class="form-control"
+                           placeholder="Search electives by name, code, or department..."
+                           oninput="filterElectives(this.value)"
+                           autocomplete="off"
+                           style="padding-left:36px; font-size:0.85rem;">
+                    <button type="button"
+                            id="elective-search-clear"
+                            onclick="clearElectiveSearch()"
+                            style="display:none; position:absolute; right:10px; top:50%;
+                                   transform:translateY(-50%); background:none; border:none;
+                                   cursor:pointer; color:var(--text-muted); font-size:1rem;
+                                   line-height:1; padding:0;">✕</button>
+                </div>
+
+                <div id="elective-no-results"
+                     style="display:none; font-size:0.85rem; color:var(--text-muted);
+                            padding:8px 12px; background:var(--bg); border-radius:6px;
+                            border:1px solid var(--border); margin-bottom:8px;">
+                    No electives found matching your search.
+                </div>
+
+                {% regroup all_electives by department as elective_groups %}
+
+                <div id="elective-list"
+                     style="max-height:320px; overflow-y:auto; padding:12px;
+                            background:var(--bg); border-radius:8px; border:1px solid var(--border);">
+                    {% for group in elective_groups %}
+                    <div class="elective-group mb-3" id="group-{{ group.grouper|slugify }}">
+                        <div class="elective-group-header"
+                             style="font-size:0.75rem; font-weight:700; text-transform:uppercase;
+                                    letter-spacing:.06em; color:var(--text-muted); margin-bottom:6px;
+                                    padding-bottom:4px; border-bottom:1px solid var(--border);">
+                            {{ group.grouper }}
+                        </div>
+                        <div class="elective-group-items"
+                             style="display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:6px;">
+                            {% for course in group.list %}
+                            <label class="elective-item"
+                                   data-code="{{ course.course_code|lower }}"
+                                   data-name="{{ course.course_name|lower }}"
+                                   data-dept="{{ course.department|lower }}"
+                                   style="display:flex; align-items:flex-start; gap:8px; padding:8px 10px;
+                                          background:var(--card-bg); border-radius:6px;
+                                          border:1px solid var(--border); cursor:pointer;
+                                          font-size:0.82rem; transition: border-color .15s;"
+                                   onmouseover="this.style.borderColor='#2563eb'"
+                                   onmouseout="this.style.borderColor='var(--border)'">
+                                <input type="checkbox" name="selected_electives" value="{{ course.id }}"
+                                       {% if course.id in selected_elective_ids %}checked{% endif %}
+                                       style="margin-top:2px; flex-shrink:0;">
+                                <span>
+                                    <strong style="color:var(--text);">{{ course.course_code }}</strong>
+                                    <span style="color:var(--text-muted); font-size:0.75rem;"> · {{ course.credits }}cr</span><br>
+                                    <span style="color:var(--text-muted); font-size:0.75rem;">{{ course.course_name }}</span>
+                                </span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            <hr>
+            {% endif %}
+
+            <!-- Semester legend -->
+            <div class="mb-3 d-flex gap-3 flex-wrap">
+                <span style="font-size:0.82rem; color:#64748b;">
+                    🍂 <strong>Odd semesters</strong> (1, 3, 5, 7) = <strong>Fall</strong>
+                </span>
+                <span style="font-size:0.82rem; color:#64748b;">
+                    🌸 <strong>Even semesters</strong> (2, 4, 6, 8) = <strong>Spring</strong>
+                </span>
+            </div>
+
+            <!-- Drag and Drop Area -->
+            <h5 class="mb-2">📌 Pin Courses to Semesters</h5>
+            <p class="text-muted small mb-3">
+                Drag courses from the pool on the left into a semester slot.
+                Hover over a course to see its full name.
+                Click ✕ to unpin. Fall/Spring-only courses are blocked from wrong slots.
+                Credit limits are enforced per slot.
+            </p>
+
+            <div class="row">
+                <!-- Left: Course Pool -->
+                <div class="col-md-3">
+                    <div class="card h-100">
+                        <div class="card-header bg-secondary text-white">Available Courses</div>
+                        <div class="card-body p-2"
+                             id="course-pool"
+                             style="min-height: 400px; background: #f8f9fa;"
+                             ondragover="allowDrop(event)"
+                             ondrop="dropToPool(event)">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+                                {% for course in all_remaining %}
+                                <div class="course-chip"
+                                     id="course-{{ course.id }}"
+                                     draggable="true"
+                                     data-semester="{{ course.semester_offered }}"
+                                     data-credits="{{ course.credits }}"
+                                     data-name="{{ course.course_name }}"
+                                     title="{{ course.course_name }} — {{ course.credits }}cr ({{ course.semester_offered }})"
+                                     ondragstart="dragStart(event, '{{ course.id }}', '{{ course.course_code }}', '{{ course.semester_offered }}', {{ course.credits }}, '{{ course.course_name|escapejs }}')"
+                                     style="border:1px solid #dee2e6; border-radius:6px;
+                                            padding:6px 8px; cursor:grab; font-size:0.78rem;">
+                                    <strong>{{ course.course_code }}</strong><br>
+                                    <span class="text-muted" style="font-size:0.7rem;">
+                                        {{ course.credits }} cr
+                                        {% if course.semester_offered == 'Fall' %}· 🍂 Fall{% endif %}
+                                        {% if course.semester_offered == 'Spring' %}· 🌸 Spr{% endif %}
+                                        {% if course.semester_offered == 'Both' %}· 🍂🌸{% endif %}
+                                    </span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right: Semester Slots -->
+                <div class="col-md-9">
+                    <div class="row">
+                        {% for slot in semester_slots %}
+                        <div class="col-md-3 mb-3">
+                            <div class="card h-100">
+                                <div class="card-header text-center bg-primary text-white p-1" style="font-size:0.85rem;">
+                                    {{ slot }}
+                                    <div style="font-size:0.7rem; opacity:.8;">
+                                        {% if forloop.counter|divisibleby:2 %}🌸 Spring{% else %}🍂 Fall{% endif %}
+                                    </div>
+                                    <div id="credits-{{ slot|slugify }}"
+                                         style="font-size:0.68rem; opacity:.9; margin-top:2px; font-weight:600;">
+                                        0/{{ preferences.target_credits_per_semester }}cr
+                                    </div>
+                                </div>
+                                <div class="card-body p-1 semester-slot"
+                                     id="slot-{{ slot|slugify }}"
+                                     data-slot="{{ slot }}"
+                                     data-season="{% if forloop.counter|divisibleby:2 %}Spring{% else %}Fall{% endif %}"
+                                     ondragover="allowDrop(event)"
+                                     ondrop="dropToSlot(event, '{{ slot }}')"
+                                     style="min-height:120px; background:#f0f4ff;">
+                                    {% for pinned in pinned_courses %}
+                                        {% if pinned.semester_label == slot %}
+                                        <div class="course-chip slot-chip mb-1"
+                                             data-course-id="{{ pinned.course.id }}"
+                                             data-course-code="{{ pinned.course.course_code }}"
+                                             data-semester="{{ pinned.course.semester_offered }}"
+                                             data-credits="{{ pinned.course.credits }}"
+                                             data-name="{{ pinned.course.course_name }}"
+                                             title="{{ pinned.course.course_name }} — {{ pinned.course.credits }}cr ({{ pinned.course.semester_offered }})"
+                                             draggable="true"
+                                             ondragstart="dragStartSlot(event, '{{ pinned.course.id }}', '{{ pinned.course.course_code }}', '{{ pinned.course.semester_offered }}', {{ pinned.course.credits }}, '{{ pinned.course.course_name|escapejs }}')"
+                                             style="border:1px solid #2563eb; border-radius:6px;
+                                                    padding:6px 8px; cursor:grab; font-size:0.78rem;
+                                                    display:flex; justify-content:space-between; align-items:center;">
+                                            <span>
+                                                <strong>{{ pinned.course.course_code }}</strong><br>
+                                                <span class="text-muted" style="font-size:0.7rem;">{{ pinned.course.credits }} cr</span>
+                                            </span>
+                                            <span onclick="removeFromSlot(this, '{{ pinned.course.id }}')"
+                                                  style="cursor:pointer; color:#ef4444; font-weight:bold;
+                                                         margin-left:6px; font-size:1rem; line-height:1;">✕</span>
+                                        </div>
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
                         {% endfor %}
-                    </select>
+                    </div>
                 </div>
             </div>
-            
-            <div class="row">
-                <div class="col-md-6 mb-3">
-                    <label class="form-label">First Name</label>
-                    <input type="text" name="first_name" class="form-control" required>
-                </div>
-                
-                <div class="col-md-6 mb-3">
-                    <label class="form-label">Last Name</label>
-                    <input type="text" name="last_name" class="form-control" required>
-                </div>
-            </div>
-            
-            <div class="row">
-                <div class="col-md-6 mb-3">
-                    <label class="form-label">Current GPA (optional)</label>
-                    <input type="number" name="gpa" class="form-control" step="0.01" min="0" max="4.0" placeholder="e.g., 3.5">
-                </div>
-                
-                <div class="col-md-6 mb-3">
-                    <label class="form-label">Expected Graduation (optional)</label>
-                    <input type="date" name="graduation_date" class="form-control">
-                    <small class="text-muted">⚠️ If your target date isn't realistic based on your progress, we'll let you know on your dashboard.
-                    </small>
-                </div>
-            </div>
-            
-            <button type="submit" class="btn btn-primary btn-lg mt-3">Create My Schedule Plan →</button>
+
+            <div id="pinned-inputs"></div>
+
+            <!-- Save button — validates before submitting -->
+            <button type="button" class="btn btn-success mt-4"
+                    onclick="validateAndSubmit()">
+                💾 Save Preferences & Generate Schedule
+            </button>
         </form>
+
     </div>
 </div>
+
+<script>
+    let draggedCourseId = null;
+    let draggedCourseCode = null;
+    let draggedSemesterOffered = null;
+    let draggedCredits = 4;
+    let draggedCourseName = '';
+
+    // ── Validate before submitting ─────────────────────────────
+    function validateAndSubmit() {
+        const credits = parseInt(document.getElementById('credit-display').textContent || '18');
+
+        // Enforce minimum 9 credits per semester
+        if (credits < 9) {
+            alert('❌ You must take at least 9 credits per semester to remain a full-time student.\n\nPlease increase your target credits before saving.');
+            // Snap slider back to 9 if somehow below
+            const slider = document.getElementById('credit-slider');
+            if (slider) {
+                slider.value = 9;
+                document.getElementById('credit-display').textContent = '9';
+                refreshAllSlotCredits();
+            }
+            return;
+        }
+
+        collectPinnedCourses();
+        document.getElementById('preferences-form').submit();
+    }
+
+    // ── Elective search ────────────────────────────────────────
+    function filterElectives(query) {
+        const q = query.toLowerCase().trim();
+        const clearBtn = document.getElementById('elective-search-clear');
+        const noResults = document.getElementById('elective-no-results');
+
+        clearBtn.style.display = q ? 'block' : 'none';
+
+        let totalVisible = 0;
+
+        document.querySelectorAll('.elective-group').forEach(group => {
+            let groupVisible = 0;
+            group.querySelectorAll('.elective-item').forEach(item => {
+                const code = item.getAttribute('data-code') || '';
+                const name = item.getAttribute('data-name') || '';
+                const dept = item.getAttribute('data-dept') || '';
+                const matches = !q || code.includes(q) || name.includes(q) || dept.includes(q);
+                item.style.display = matches ? '' : 'none';
+                if (matches) groupVisible++;
+            });
+            group.style.display = groupVisible > 0 ? '' : 'none';
+            totalVisible += groupVisible;
+        });
+
+        noResults.style.display = (totalVisible === 0 && q) ? 'block' : 'none';
+    }
+
+    function clearElectiveSearch() {
+        document.getElementById('elective-search').value = '';
+        filterElectives('');
+        document.getElementById('elective-search').focus();
+    }
+
+    // ── Semester season: odd = Fall, even = Spring ─────────────
+    function getSlotSeason(slotName) {
+        const num = parseInt(slotName.replace('Semester ', ''));
+        return num % 2 === 1 ? 'Fall' : 'Spring';
+    }
+
+    // ── Credit helpers ─────────────────────────────────────────
+    function getCreditLimit() {
+        return parseInt(document.getElementById('credit-display').textContent || '18');
+    }
+
+    function getSlotCredits(slotEl) {
+        return Array.from(slotEl.querySelectorAll('.slot-chip'))
+            .reduce((sum, chip) => sum + parseInt(chip.getAttribute('data-credits') || '4'), 0);
+    }
+
+    function updateSlotCredits(slotEl, slotName) {
+        const total = getSlotCredits(slotEl);
+        const limit = getCreditLimit();
+        const headerId = 'credits-' + slotName.toLowerCase().replace(/ /g, '-');
+        const header = document.getElementById(headerId);
+        if (header) {
+            header.textContent = `${total}/${limit}cr`;
+            header.style.color = total > limit ? '#fca5a5' : '#86efac';
+        }
+    }
+
+    function refreshAllSlotCredits() {
+        document.querySelectorAll('.semester-slot').forEach(slot => {
+            updateSlotCredits(slot, slot.dataset.slot);
+        });
+    }
+
+    // ── Drag start from pool ───────────────────────────────────
+    function dragStart(event, courseId, courseCode, semesterOffered, credits, courseName) {
+        draggedCourseId = courseId;
+        draggedCourseCode = courseCode;
+        draggedSemesterOffered = semesterOffered;
+        draggedCredits = credits;
+        draggedCourseName = courseName;
+        event.dataTransfer.setData('courseId', courseId);
+        event.dataTransfer.setData('courseCode', courseCode);
+        event.dataTransfer.setData('semesterOffered', semesterOffered);
+        event.dataTransfer.setData('courseCredits', credits);
+        event.dataTransfer.setData('courseName', courseName);
+    }
+
+    // ── Drag start from slot chip ──────────────────────────────
+    function dragStartSlot(event, courseId, courseCode, semesterOffered, credits, courseName) {
+        draggedCourseId = courseId;
+        draggedCourseCode = courseCode;
+        draggedSemesterOffered = semesterOffered;
+        draggedCredits = credits;
+        draggedCourseName = courseName;
+        event.dataTransfer.setData('courseId', courseId);
+        event.dataTransfer.setData('courseCode', courseCode);
+        event.dataTransfer.setData('semesterOffered', semesterOffered);
+        event.dataTransfer.setData('courseCredits', credits);
+        event.dataTransfer.setData('courseName', courseName);
+    }
+
+    function allowDrop(event) {
+        event.preventDefault();
+    }
+
+    // ── Drop course into a semester slot ───────────────────────
+    function dropToSlot(event, slotName) {
+        event.preventDefault();
+        const courseId = event.dataTransfer.getData('courseId');
+        const courseCode = event.dataTransfer.getData('courseCode');
+        const semesterOffered = event.dataTransfer.getData('semesterOffered');
+        const courseCredits = parseInt(event.dataTransfer.getData('courseCredits') || '4');
+        const courseName = event.dataTransfer.getData('courseName') || courseCode;
+        if (!courseId) return;
+
+        // Semester validation
+        const slotSeason = getSlotSeason(slotName);
+        if (semesterOffered === 'Fall' && slotSeason === 'Spring') {
+            alert(`❌ ${courseCode} is only offered in Fall.\nPlease drop it into an odd-numbered semester (1, 3, 5, 7).`);
+            return;
+        }
+        if (semesterOffered === 'Spring' && slotSeason === 'Fall') {
+            alert(`❌ ${courseCode} is only offered in Spring.\nPlease drop it into an even-numbered semester (2, 4, 6, 8).`);
+            return;
+        }
+
+        const slotId = 'slot-' + slotName.toLowerCase().replace(/ /g, '-');
+        const slotEl = document.getElementById(slotId);
+        if (!slotEl) return;
+
+        if (slotEl.querySelector(`[data-course-id="${courseId}"]`)) return;
+
+        // Credit limit check
+        const currentCreditsExcludingThis = Array.from(slotEl.querySelectorAll('.slot-chip'))
+            .filter(chip => chip.getAttribute('data-course-id') !== courseId)
+            .reduce((sum, chip) => sum + parseInt(chip.getAttribute('data-credits') || '4'), 0);
+
+        const creditLimit = getCreditLimit();
+        if (currentCreditsExcludingThis + courseCredits > creditLimit) {
+            alert(`❌ Cannot add ${courseCode} — would exceed the ${creditLimit} credit limit.\n\nCurrent: ${currentCreditsExcludingThis}cr + ${courseCredits}cr = ${currentCreditsExcludingThis + courseCredits}cr (limit: ${creditLimit}cr)\n\nTry a different semester or increase your credit limit above.`);
+            return;
+        }
+
+        // Remove from any other slot
+        document.querySelectorAll(`.slot-chip[data-course-id="${courseId}"]`).forEach(chip => {
+            const oldSlot = chip.closest('.semester-slot');
+            chip.remove();
+            if (oldSlot) updateSlotCredits(oldSlot, oldSlot.dataset.slot);
+        });
+
+        // Hide from pool
+        const poolEl = document.getElementById('course-' + courseId);
+        if (poolEl) poolEl.style.display = 'none';
+
+        // Create chip with tooltip
+        const chip = document.createElement('div');
+        chip.className = 'course-chip slot-chip mb-1';
+        chip.setAttribute('data-course-id', courseId);
+        chip.setAttribute('data-course-code', courseCode);
+        chip.setAttribute('data-semester', semesterOffered);
+        chip.setAttribute('data-credits', courseCredits);
+        chip.setAttribute('data-name', courseName);
+        chip.setAttribute('title', `${courseName} — ${courseCredits}cr (${semesterOffered})`);
+        chip.setAttribute('draggable', 'true');
+        chip.style.cssText = 'border:1px solid #2563eb; border-radius:6px; padding:6px 8px; cursor:grab; font-size:0.78rem; display:flex; justify-content:space-between; align-items:center;';
+        chip.innerHTML = `
+            <span>
+                <strong>${courseCode}</strong><br>
+                <span style="font-size:0.7rem; color:var(--text-muted);">${courseCredits}cr · pinned</span>
+            </span>
+            <span onclick="removeFromSlot(this, '${courseId}')"
+                  style="cursor:pointer; color:#ef4444; font-weight:bold; margin-left:6px; font-size:1rem; line-height:1;">✕</span>
+        `;
+        chip.addEventListener('dragstart', (e) => dragStartSlot(e, courseId, courseCode, semesterOffered, courseCredits, courseName));
+        slotEl.appendChild(chip);
+
+        updateSlotCredits(slotEl, slotName);
+
+        draggedCourseId = null;
+        draggedCourseCode = null;
+        draggedSemesterOffered = null;
+        draggedCredits = 4;
+        draggedCourseName = '';
+    }
+
+    // ── Remove chip from slot and restore to pool ──────────────
+    function removeFromSlot(el, courseId) {
+        const chip = el.closest('.slot-chip');
+        const slotEl = chip.closest('.semester-slot');
+        const slotName = slotEl ? slotEl.getAttribute('data-slot') : null;
+        chip.remove();
+        if (slotEl && slotName) updateSlotCredits(slotEl, slotName);
+        const poolEl = document.getElementById('course-' + courseId);
+        if (poolEl) poolEl.style.display = '';
+    }
+
+    // ── Drop back to pool ──────────────────────────────────────
+    function dropToPool(event) {
+        event.preventDefault();
+        const courseId = event.dataTransfer.getData('courseId');
+        if (!courseId) return;
+
+        document.querySelectorAll(`.slot-chip[data-course-id="${courseId}"]`).forEach(chip => {
+            const slotEl = chip.closest('.semester-slot');
+            chip.remove();
+            if (slotEl) updateSlotCredits(slotEl, slotEl.dataset.slot);
+        });
+
+        const poolEl = document.getElementById('course-' + courseId);
+        if (poolEl) poolEl.style.display = '';
+
+        draggedCourseId = null;
+    }
+
+    // ── Collect pinned courses before submitting ───────────────
+    function collectPinnedCourses() {
+        const container = document.getElementById('pinned-inputs');
+        container.innerHTML = '';
+        const seen = new Set();
+
+        document.querySelectorAll('.semester-slot').forEach(slot => {
+            const slotName = slot.dataset.slot;
+            slot.querySelectorAll('.slot-chip').forEach(chip => {
+                const courseId = chip.getAttribute('data-course-id');
+                if (courseId && !seen.has(courseId)) {
+                    seen.add(courseId);
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'pinned_courses';
+                    input.value = courseId + ':' + slotName;
+                    container.appendChild(input);
+                }
+            });
+        });
+    }
+
+    // ── On page load ───────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', function () {
+        // Hide pool chips for already-pinned courses
+        {% for pinned in pinned_courses %}
+        const poolEl{{ forloop.counter }} = document.getElementById('course-{{ pinned.course.id }}');
+        if (poolEl{{ forloop.counter }}) poolEl{{ forloop.counter }}.style.display = 'none';
+        {% endfor %}
+
+        // Initialize all slot credit counters
+        document.querySelectorAll('.semester-slot').forEach(slot => {
+            updateSlotCredits(slot, slot.dataset.slot);
+        });
+
+        // Prevent slider from going below 9 via keyboard
+        const slider = document.getElementById('credit-slider');
+        if (slider) {
+            slider.addEventListener('change', function() {
+                if (parseInt(this.value) < 9) {
+                    this.value = 9;
+                    document.getElementById('credit-display').textContent = '9';
+                    refreshAllSlotCredits();
+                }
+            });
+        }
+    });
+</script>
+
 {% endblock %}

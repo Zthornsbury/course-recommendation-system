@@ -1,0 +1,68 @@
+{% extends 'courses/base.html' %}
+
+{% block title %}My Schedule - {{ student.first_name }} {{ student.last_name }}{% endblock %}
+
+{% block content %}
+
+<div class="card">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <span>📅 My Graduation Schedule — {{ total_semesters }} semesters</span>
+        <div>
+            <a href="{% url 'plan_schedule' %}" class="btn btn-sm btn-outline-light me-2">⚙️ Edit Preferences</a>
+            <a href="{% url 'download_pdf' student.student_id %}" class="btn btn-sm" style="background: #27ae60; color: white; border: none;">
+                📄 Download PDF
+            </a>
+        </div>
+    </div>
+    <div class="card-body">
+
+        <!-- Quick summary bar -->
+        <div class="row mb-4">
+            <div class="col-md-4 text-center">
+                <div style="font-size: 1.8rem; font-weight: bold; color: #3498db;">{{ total_semesters }}</div>
+                <div class="text-muted small">Semesters Remaining</div>
+            </div>
+            <div class="col-md-4 text-center">
+                <div style="font-size: 1.8rem; font-weight: bold; color: #e74c3c;">{{ courses_remaining }}</div>
+                <div class="text-muted small">Courses to Schedule</div>
+            </div>
+            <div class="col-md-4 text-center">
+                <div style="font-size: 1.8rem; font-weight: bold; color: #27ae60;">{{ target_credits }} cr</div>
+                <div class="text-muted small">Target Credits/Semester</div>
+            </div>
+        </div>
+
+        {% if courses_remaining > 0 %}
+        <div class="alert alert-warning">
+            ⚠️ {{ courses_remaining }} required course(s) could not be scheduled — check prerequisites or adjust preferences in
+            <a href="{% url 'plan_schedule' %}">Plan My Schedule</a>.
+        </div>
+        {% endif %}
+
+        {% if schedule %}
+            {% for semester_plan in schedule %}
+            <div class="semester-plan">
+                <h3>
+                    {{ semester_plan.semester }}
+                    <span class="badge-credits">{{ semester_plan.total_credits }} credits</span>
+                </h3>
+                <ul class="course-list">
+                    {% for course in semester_plan.courses %}
+                    <li>
+                        <strong>{{ course.course_code }}</strong> — {{ course.course_name }}
+                        <span class="badge-credits">{{ course.credits }} cr</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="alert alert-success">
+                🎓 Congratulations! You've completed all requirements!
+            </div>
+        {% endif %}
+
+    </div>
+</div>
+
+{% endblock %}

@@ -4,182 +4,364 @@
 
 {% block content %}
 
-<!-- Student Info Card -->
-<div class="card">
-    <div class="card-header">
-        Student Information
+<!-- Quick Stats Bar -->
+<div class="row mb-3">
+    <div class="col-md-3">
+        <div class="card text-center" style="padding: 1rem;">
+            <div style="font-size: 2rem; font-weight: bold; color: #2563eb;">{{ completed_courses|length }}</div>
+            <div class="text-muted small">Courses Completed</div>
+        </div>
     </div>
-    <div class="card-body">
-        <div class="row">
-            <div class="col-md-6">
-                <div class="info-box">
-                    <span class="info-label">ID:</span> {{ student.student_id }}
-                </div>
-                <div class="info-box">
-                    <span class="info-label">Name:</span> {{ student.first_name }} {{ student.last_name }}
-                </div>
+    <div class="col-md-3">
+        <div class="card text-center" style="padding: 1rem;">
+            <div style="font-size: 2rem; font-weight: bold; color: #10b981;">{{ total_semesters }}</div>
+            <div class="text-muted small">Semesters to Graduate</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center" style="padding: 1rem;">
+            <div style="font-size: 2rem; font-weight: bold; color: #f59e0b;">
+                {% if student.gpa %}{{ student.gpa }}{% else %}—{% endif %}
             </div>
-            <div class="col-md-6">
-                <div class="info-box">
-                    <span class="info-label">Major:</span> {{ student.major.name }}
-                </div>
-                <div class="info-box">
-                    <span class="info-label">Current GPA:</span>
-                    {% if student.gpa %}
-                        {{ student.gpa }}
-                    {% else %}
-                        Not set
-                    {% endif %}
-                </div>
-                <div class="info-box">
-                    <span class="info-label">Expected Graduation:</span>
-                    {% if student.expected_graduation %}
-                        {{ student.expected_graduation }}
-                    {% else %}
-                        Not set
-                    {% endif %}
-                </div>
-                {% if is_behind %}
-                <div class="alert alert-danger mt-2" style="border-left: 4px solid #e74c3c; background-color: #fdf3f2; padding: 15px; border-radius: 6px;">
-                    <h5 style="color: #c0392b;">⚠️ You Are Behind Schedule</h5>
-                    <p style="margin-bottom: 6px;">
-                        Based on your current progress, you will <strong>not be able to graduate</strong>
-                        by <strong>{{ student.expected_graduation|date:"F Y" }}</strong>.
-                    </p>
-                    <p style="margin-bottom: 0;">
-                        Your realistic graduation date is:
-                        <strong style="color: #27ae60;">{{ realistic_graduation|date:"F Y" }}</strong>.
-                        See your suggested schedule below.
-                    </p>
-                </div>
-                {% endif %}
+            <div class="text-muted small">Current GPA</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center" style="padding: 1rem;">
+            <div style="font-size: 1.3rem; font-weight: bold; color: #7c3aed; line-height: 1.2; padding-top: 4px;">
+                {% if student.concentration == 'AI' %}AI & ML
+                {% elif student.concentration == 'WEB' %}Web Dev
+                {% elif student.concentration == 'CYBER' %}Cybersecurity
+                {% else %}—{% endif %}
             </div>
+            <div class="text-muted small">Concentration</div>
         </div>
     </div>
 </div>
 
-<!-- Update Student Info Card -->
-<div class="card">
-    <div class="card-header">
-        Update Student Information
+<!-- Credit Progress Bar -->
+<div class="card mb-3" style="padding: 16px 24px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <span style="font-weight:600; font-size:0.9rem;">Degree Progress</span>
+        <span style="font-size:0.85rem; color:#64748b;">
+            {{ credits_completed }} / {{ total_credits_required }} credits completed
+        </span>
     </div>
-    <div class="card-body">
-        <form method="POST" action="{% url 'dashboard' student.student_id %}">
-            {% csrf_token %}
-            <input type="hidden" name="action" value="update_student">
 
-            <div class="row">
-                <div class="col-md-6 mb-3">
-                    <label class="form-label">Current GPA</label>
-                    <input type="number" name="gpa" class="form-control" step="0.01" min="0" max="4.0"
-                           value="{{ student.gpa|default:'' }}" placeholder="e.g., 3.5">
-                </div>
-
-                <div class="col-md-6 mb-3">
-                    <label class="form-label">Expected Graduation</label>
-                    <input type="date" name="graduation_date" class="form-control"
-                           value="{{ student.expected_graduation|date:'Y-m-d' }}">
-                </div>
-            </div>
-
-            <button type="submit" class="btn btn-success">Update Info</button>
-        </form>
+    <div style="background:#e2e8f0; border-radius:20px; height:14px; overflow:hidden;">
+        <div style="background: linear-gradient(90deg, #2563eb 0%, #10b981 100%);
+                    width:{{ progress_percent }}%; height:100%;
+                    border-radius:20px; transition: width .5s ease;
+                    min-width: {% if progress_percent > 0 %}4px{% else %}0{% endif %};">
+        </div>
+    </div>
+    <div style="font-size:0.78rem; color:#64748b; margin-top:6px;">
+        {{ progress_percent }}% complete toward your {{ student.major.name }} degree
     </div>
 </div>
 
-<!-- Add Completed Course Card -->
-<div class="card">
-    <div class="card-header">
-        Add Completed Course
+<!-- GPA Warning (collapsible) -->
+{% if gpa_warning == 'probation' %}
+<div class="alert alert-danger mb-3" style="border-left: 4px solid #ef4444; padding: 0;">
+    <div onclick="toggleWarning('gpaWarning', 'gpaArrow')"
+         style="padding: 12px 16px; cursor: pointer; display:flex; justify-content:space-between; align-items:center;">
+        <span><strong>🚨 Academic Probation Risk</strong> — click to see details</span>
+        <span id="gpaArrow" style="opacity:.6;">▼</span>
     </div>
-    <div class="card-body">
-        <form method="POST">
-            {% csrf_token %}
-            <div class="row">
-                <div class="col-md-5">
-                    <label class="form-label">Course</label>
-                    <select name="course_id" class="form-control" required>
-                        <option value="">-- Select Course --</option>
-                        {% for course in all_courses %}
-                        <option value="{{ course.id }}">{{ course.course_code }} - {{ course.course_name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">Grade</label>
-                    <select name="grade" class="form-control" required>
-                        <option value="">-- Select Grade --</option>
-                        <option value="A">A</option>
-                        <option value="B">B</option>
-                        <option value="C">C</option>
-                        <option value="D">D</option>
-                        <option value="F">F</option>
-                        <option value="P">Pass</option>
-                    </select>
-                </div>
-                <div class="col-md-4">
-                    <button type="submit" class="btn btn-primary" style="margin-top: 32px;">Add Course</button>
-                </div>
-            </div>
-        </form>
+    <div id="gpaWarning" style="display:none; padding: 0 16px 12px;">
+        <p style="margin-bottom: 0;">
+            Your GPA of <strong>{{ student.gpa }}</strong> is below <strong>2.0</strong>.
+            You may be at risk of academic probation. Please speak with your academic advisor immediately.
+        </p>
     </div>
 </div>
-
-<!-- Completed Courses Card -->
-<div class="card">
-    <div class="card-header">
-        Completed Courses ({{ completed_courses|length }})
+{% elif gpa_warning == 'at_risk' %}
+<div class="alert alert-warning mb-3" style="border-left: 4px solid #f59e0b; padding: 0;">
+    <div onclick="toggleWarning('gpaWarning', 'gpaArrow')"
+         style="padding: 12px 16px; cursor: pointer; display:flex; justify-content:space-between; align-items:center;">
+        <span><strong>⚠️ GPA Below 3.0</strong> — click to see details</span>
+        <span id="gpaArrow" style="opacity:.6;">▼</span>
     </div>
-    <div class="card-body">
-        {% if completed_courses %}
-        <ul class="course-list">
-        {% for cc in completed_courses %}
-            <li>
-                <strong>{{ cc.course.course_code }}</strong> - {{ cc.course.course_name }}
-                <span class="badge bg-success">Grade: {{ cc.grade }}</span>
-                <span class="badge-credits">{{ cc.course.credits }} credits</span>
-            </li>
-        {% endfor %}
-        </ul>
-        {% else %}
-        <p class="text-muted">No completed courses yet. Add your first course above!</p>
-        {% endif %}
+    <div id="gpaWarning" style="display:none; padding: 0 16px 12px;">
+        <p style="margin-bottom: 0;">
+            Your GPA of <strong>{{ student.gpa }}</strong> is below <strong>3.0</strong>.
+            Note that some courses like CSC3951 (Computer Science Research) require a minimum 3.0 GPA to enroll.
+        </p>
     </div>
 </div>
+{% endif %}
 
-<!-- Graduation Plan Card -->
-<div class="card">
-    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-        <span>Recommended Graduation Plan ({{ total_semesters }} semesters)</span>
-        <a href="{% url 'download_pdf' student.student_id %}" class="btn btn-success btn-sm" style="background: #27ae60; border: none;">
-            📄 Download PDF
-        </a>
+<!-- Graduation Warning (collapsible) -->
+{% if is_behind %}
+<div class="alert alert-danger mb-3" style="border-left: 4px solid #ef4444; padding: 0;">
+    <div onclick="toggleWarning('behindWarning', 'behindArrow')"
+         style="padding: 12px 16px; cursor: pointer; display:flex; justify-content:space-between; align-items:center;">
+        <span><strong>⚠️ You Are Behind Schedule</strong> — click to see details</span>
+        <span id="behindArrow" style="opacity:.6;">▼</span>
     </div>
-    <div class="card-body">
-        {% if courses_remaining > 0 %}
-            <div class="alert alert-warning">
-                ⚠️ Warning: {{ courses_remaining }} required courses could not be scheduled (check prerequisites)
-            </div>
-        {% endif %}
+    <div id="behindWarning" style="display:none; padding: 0 16px 12px;">
+        <p style="margin-bottom: 6px;">
+            Based on your progress, you will <strong>not graduate</strong> by
+            <strong>{{ expected_graduation_semester }}</strong>.
+        </p>
+        <p style="margin-bottom: 0;">
+            Your realistic graduation is <strong style="color: #10b981;">{{ realistic_graduation_semester }}</strong>.
+            Visit your <a href="{% url 'schedule' %}">Schedule page</a> for the full plan.
+        </p>
+    </div>
+</div>
+{% endif %}
 
-        {% for semester_plan in schedule %}
-            <div class="semester-plan">
-                <h3>{{ semester_plan.semester }} — <span class="badge-credits">{{ semester_plan.total_credits }} credits</span></h3>
-                <ul class="course-list">
-                    {% for course in semester_plan.courses %}
-                        <li>
-                            <strong>{{ course.course_code }}</strong> - {{ course.course_name }}
-                            <span class="badge-credits">{{ course.credits }} credits</span>
-                        </li>
+<!-- Prerequisite Error -->
+{% if prereq_error %}
+<div class="alert alert-danger mb-3">
+    ⚠️ {{ prereq_error }}
+</div>
+{% endif %}
+
+<!-- Two column layout -->
+<div class="row">
+
+    <!-- Left: Student Info + Collapsible Update -->
+    <div class="col-md-5">
+        <div class="card">
+            <div class="card-header">Student Information</div>
+            <div class="card-body">
+                <div class="info-box"><span class="info-label">ID:</span> {{ student.student_id }}</div>
+                <div class="info-box"><span class="info-label">Name:</span> {{ student.first_name }} {{ student.last_name }}</div>
+                <div class="info-box"><span class="info-label">Major:</span> {{ student.major.name }}</div>
+                <div class="info-box">
+                    <span class="info-label">Concentration:</span>
+                    {% if student.concentration == 'AI' %}AI & Machine Learning
+                    {% elif student.concentration == 'WEB' %}Full Stack Web Development
+                    {% elif student.concentration == 'CYBER' %}Cybersecurity
+                    {% else %}None selected{% endif %}
+                </div>
+                <div class="info-box">
+                    <span class="info-label">Expected Graduation:</span>
+                    {% if expected_graduation_semester %}{{ expected_graduation_semester }}{% else %}Not set{% endif %}
+                </div>
+
+                <hr style="margin: 12px 0;">
+
+                <!-- Collapsible Update Info -->
+                <button class="btn btn-sm w-100 mb-2"
+                        style="background:#f1f5f9; color:#0f172a; border:1px solid #e2e8f0;
+                               text-align:left; font-weight:500;"
+                        onclick="toggleWarning('updateForm', 'updateArrow')">
+                    ✏️ Update Info
+                    <span id="updateArrow" style="float:right; opacity:.5;">▼</span>
+                </button>
+
+                <div id="updateForm" style="display:none;">
+                    <form method="POST" action="{% url 'dashboard' student.student_id %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="update_student">
+
+                        <div class="mb-2">
+                            <label class="form-label small">Current GPA</label>
+                            <input type="number" name="gpa" class="form-control form-control-sm"
+                                   step="0.01" min="0" max="4.0"
+                                   value="{{ student.gpa|default:'' }}" placeholder="e.g., 3.5">
+                        </div>
+
+                        <div class="mb-2">
+                            <label class="form-label small">Expected Graduation</label>
+                            <select name="graduation_semester" class="form-control form-control-sm">
+                                <option value="">-- Select Semester --</option>
+                                {% for year in graduation_years %}
+                                    <option value="Spring-{{ year }}"
+                                        {% if student.expected_graduation and student.expected_graduation.month <= 7 and student.expected_graduation.year == year %}selected{% endif %}>
+                                        Spring {{ year }}
+                                    </option>
+                                    <option value="Fall-{{ year }}"
+                                        {% if student.expected_graduation and student.expected_graduation.month > 7 and student.expected_graduation.year == year %}selected{% endif %}>
+                                        Fall {{ year }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="mb-2">
+                            <label class="form-label small">Concentration</label>
+                            <select name="concentration" class="form-control form-control-sm">
+                                <option value="" {% if not student.concentration %}selected{% endif %}>-- No Concentration --</option>
+                                <option value="AI" {% if student.concentration == 'AI' %}selected{% endif %}>AI & Machine Learning</option>
+                                <option value="WEB" {% if student.concentration == 'WEB' %}selected{% endif %}>Full Stack Web Development</option>
+                                <option value="CYBER" {% if student.concentration == 'CYBER' %}selected{% endif %}>Cybersecurity</option>
+                            </select>
+                        </div>
+
+                        <button type="submit" class="btn btn-success btn-sm">Update</button>
+                    </form>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Right: Add Completed Course + Completed List -->
+    <div class="col-md-7">
+
+        <!-- Add Completed Course — overflow visible so dropdown shows -->
+        <div class="card" style="overflow: visible;">
+            <div class="card-header">Add Completed Course</div>
+            <div class="card-body" style="overflow: visible;">
+                <form method="POST" id="add-course-form">
+                    {% csrf_token %}
+                    <div class="row">
+                        <div class="col-md-6" style="position: relative;">
+                            <label class="form-label small">Course</label>
+                            <input type="hidden" name="course_id" id="selected-course-id">
+                            <input type="text"
+                                   id="courseSearch"
+                                   class="form-control form-control-sm"
+                                   placeholder="🔍 Type to search courses..."
+                                   autocomplete="off"
+                                   oninput="filterCourses(this.value)"
+                                   onfocus="showDropdown()"
+                                   onblur="hideDropdown()">
+                            <div id="courseDropdown"
+                                 style="display:none; position:absolute; z-index:9999;
+                                        background:white; border:1px solid #dee2e6;
+                                        border-radius:6px; max-height:220px; overflow-y:auto;
+                                        width:100%; box-shadow:0 4px 16px rgba(0,0,0,0.15);
+                                        margin-top:2px; left:0;">
+                                {% for course in all_courses %}
+                                <div class="course-option"
+                                     data-id="{{ course.id }}"
+                                     data-name="{{ course.course_code }} - {{ course.course_name }}"
+                                     data-search="{{ course.course_code|lower }} {{ course.course_name|lower }}"
+                                     onmousedown="selectCourse('{{ course.id }}', '{{ course.course_code }} - {{ course.course_name }}')"
+                                     style="padding:8px 12px; cursor:pointer; font-size:0.83rem;
+                                            border-bottom:1px solid #f1f5f9; transition: background .15s;">
+                                    <strong>{{ course.course_code }}</strong> — {{ course.course_name }}
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small">Grade</label>
+                            <select name="grade" class="form-control form-control-sm" required>
+                                <option value="">-- Grade --</option>
+                                <option value="A">A</option>
+                                <option value="B">B</option>
+                                <option value="C">C</option>
+                                <option value="D">D</option>
+                                <option value="F">F</option>
+                                <option value="P">Pass</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <button type="submit" class="btn btn-primary btn-sm"
+                                    style="margin-top: 28px;">Add</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Completed Courses List -->
+        <div class="card">
+            <div class="card-header">
+                Completed Courses ({{ completed_courses|length }})
+            </div>
+            <div class="card-body" style="max-height: 300px; overflow-y: auto; padding: 0;">
+                {% if completed_courses %}
+                <ul class="course-list" style="margin: 0; padding: 0;">
+                    {% for cc in completed_courses %}
+                    <li style="display:flex; justify-content:space-between; align-items:center; padding: 10px 16px;">
+                        <span>
+                            <strong>{{ cc.course.course_code }}</strong> — {{ cc.course.course_name }}
+                            <span class="badge bg-success ms-1">{{ cc.grade }}</span>
+                            <span class="badge-credits ms-1">{{ cc.course.credits }} cr</span>
+                        </span>
+                        <a href="{% url 'delete_course' student.student_id cc.course.id %}"
+                           onclick="return confirm('Remove {{ cc.course.course_code }} from completed courses?')"
+                           style="color:#ef4444; font-size:0.8rem; text-decoration:none; margin-left:8px;
+                                  padding:2px 8px; border:1px solid #ef4444; border-radius:4px;
+                                  white-space:nowrap; flex-shrink:0;"
+                           title="Remove course">
+                            ✕ Remove
+                        </a>
+                    </li>
                     {% endfor %}
                 </ul>
+                {% else %}
+                <div style="padding: 20px; text-align: center;">
+                    <p class="text-muted">No completed courses yet. Add your first course above!</p>
+                </div>
+                {% endif %}
             </div>
-        {% empty %}
-            <div class="alert alert-success">
-                🎓 Congratulations! You've completed all requirements!
+        </div>
+
+        <!-- Quick links -->
+        <div class="card text-center" style="padding: 1.2rem;">
+            <p class="mb-2 text-muted">Ready to see your full graduation plan?</p>
+            <div class="d-flex gap-2 justify-content-center">
+                <a href="{% url 'schedule' %}" class="btn btn-primary btn-sm">📅 View My Schedule</a>
+                <a href="{% url 'plan_schedule' %}" class="btn btn-sm"
+                   style="background:#f1f5f9; color:#0f172a; border:1px solid #e2e8f0;">⚙️ Plan My Schedule</a>
             </div>
-        {% endfor %}
+        </div>
+
     </div>
 </div>
+
+<script>
+    /* ── Toggle collapsible sections ── */
+    function toggleWarning(contentId, arrowId) {
+        const content = document.getElementById(contentId);
+        const arrow = document.getElementById(arrowId);
+        if (content.style.display === 'none') {
+            content.style.display = 'block';
+            arrow.textContent = '▲';
+        } else {
+            content.style.display = 'none';
+            arrow.textContent = '▼';
+        }
+    }
+
+    /* ── Searchable course dropdown ── */
+    function filterCourses(search) {
+        const dropdown = document.getElementById('courseDropdown');
+        const options = dropdown.querySelectorAll('.course-option');
+        const term = search.toLowerCase().trim();
+
+        options.forEach(opt => {
+            const text = opt.getAttribute('data-search');
+            opt.style.display = (!term || text.includes(term)) ? 'block' : 'none';
+        });
+
+        dropdown.style.display = 'block';
+    }
+
+    function showDropdown() {
+        const dropdown = document.getElementById('courseDropdown');
+        dropdown.querySelectorAll('.course-option').forEach(opt => {
+            opt.style.display = 'block';
+        });
+        dropdown.style.display = 'block';
+    }
+
+    function hideDropdown() {
+        setTimeout(() => {
+            document.getElementById('courseDropdown').style.display = 'none';
+        }, 200);
+    }
+
+    function selectCourse(id, name) {
+        document.getElementById('selected-course-id').value = id;
+        document.getElementById('courseSearch').value = name;
+        document.getElementById('courseDropdown').style.display = 'none';
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('.course-option').forEach(opt => {
+            opt.addEventListener('mouseover', () => opt.style.background = '#f0f4ff');
+            opt.addEventListener('mouseout', () => opt.style.background = 'white');
+        });
+    });
+</script>
 
 {% endblock %}
