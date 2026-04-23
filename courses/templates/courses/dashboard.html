@@ -146,7 +146,7 @@
 
                 <!-- Collapsible Update Info -->
                 <button class="btn btn-sm w-100 mb-2"
-                        style="background:#f1f5f9; color:#0f172a; border:1px solid #e2e8f0;
+                        style="background:var(--card-bg); color:var(--text); border:1px solid var(--border);
                                text-align:left; font-weight:500;"
                         onclick="toggleWarning('updateForm', 'updateArrow')">
                     ✏️ Update Info
@@ -223,7 +223,7 @@
                                    onblur="hideDropdown()">
                             <div id="courseDropdown"
                                  style="display:none; position:absolute; z-index:9999;
-                                        background:white; border:1px solid #dee2e6;
+                                        background:var(--card-bg); border:1px solid var(--border);
                                         border-radius:6px; max-height:220px; overflow-y:auto;
                                         width:100%; box-shadow:0 4px 16px rgba(0,0,0,0.15);
                                         margin-top:2px; left:0;">
@@ -301,7 +301,7 @@
             <div class="d-flex gap-2 justify-content-center">
                 <a href="{% url 'schedule' %}" class="btn btn-primary btn-sm">📅 View My Schedule</a>
                 <a href="{% url 'plan_schedule' %}" class="btn btn-sm"
-                   style="background:#f1f5f9; color:#0f172a; border:1px solid #e2e8f0;">⚙️ Plan My Schedule</a>
+                   style="background:var(--card-bg); color:var(--text); border:1px solid var(--border);">⚙️ Plan My Schedule</a>
             </div>
         </div>
 
@@ -358,8 +358,8 @@
 
     document.addEventListener('DOMContentLoaded', function () {
         document.querySelectorAll('.course-option').forEach(opt => {
-            opt.addEventListener('mouseover', () => opt.style.background = '#f0f4ff');
-            opt.addEventListener('mouseout', () => opt.style.background = 'white');
+            opt.addEventListener('mouseover', () => opt.style.background = 'var(--border)');
+            opt.addEventListener('mouseout', () => opt.style.background = 'var(--card-bg)');
         });
     });
 </script>

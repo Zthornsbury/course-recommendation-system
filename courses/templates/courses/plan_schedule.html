@@ -25,27 +25,40 @@
             <input type="hidden" name="action" value="save_preferences">
             <input type="hidden" name="student_id" value="{{ student.student_id }}">
 
-            <!-- Target Credits Slider -->
+            <!-- ═══════════════════════════════════════════════════════
+                 TARGET CREDITS SLIDER
+                 Only allows 4 values: 9, 12, 16, 18
+                 The slider uses step="1" so all intermediate positions
+                 are physically possible, but:
+                 - The JS snaps the display to the nearest allowed value on input
+                 - The server-side snap_to_allowed_credits() corrects any
+                   stale value before saving to the DB
+                 - On page load the display is synced to the slider's actual
+                   value so a stale DB value like 15 shows as 16 immediately
+            ═══════════════════════════════════════════════════════ -->
             <div class="mb-4">
                 <label class="form-label fw-bold">🎯 TARGET CREDITS PER SEMESTER:
                     <span id="credit-display" class="text-primary">
                         {{ preferences.target_credits_per_semester }}
                     </span>
                 </label>
+
                 <input type="range" name="target_credits" id="credit-slider"
                        class="form-range"
                        min="9" max="18" step="1"
                        value="{{ preferences.target_credits_per_semester }}"
-                       oninput="document.getElementById('credit-display').textContent = this.value; refreshAllSlotCredits();">
+                       oninput="handleSliderInput(this.value);">
+
+                <!-- Tick labels — only show the 4 allowed values -->
                 <div style="position:relative; height:22px; font-size:0.75rem; color:#64748b; margin-top:4px;">
                     <span style="position:absolute; left:0%;">9 (part-time)</span>
                     <span style="position:absolute; left:calc(33% - 34px);">12 (full-time)</span>
-                    <span style="position:absolute; left:calc(67% - 8px);">15</span>
+                    <span style="position:absolute; left:calc(77.8% - 8px);">16</span>
                     <span style="position:absolute; right:0;">18 (max)</span>
                 </div>
-                <!-- Minimum credit note -->
+
                 <p class="text-muted small mt-2" style="margin-bottom:0;">
-                    Minimum 9 credits per semester required.
+                    Minimum 9 credits per semester required. Allowed values: 9, 12, 16, 18.
                 </p>
             </div>
 
@@ -273,7 +286,7 @@
 
             <div id="pinned-inputs"></div>
 
-            <!-- Save button — validates before submitting -->
+            <!-- Save button -->
             <button type="button" class="btn btn-success mt-4"
                     onclick="validateAndSubmit()">
                 💾 Save Preferences & Generate Schedule
@@ -284,34 +297,126 @@
 </div>
 
 <script>
+    // ── Allowed credit values — must match ALLOWED_CREDIT_VALUES in views.py ──
+    const ALLOWED_CREDITS = [9, 12, 16, 18];
+
     let draggedCourseId = null;
     let draggedCourseCode = null;
     let draggedSemesterOffered = null;
     let draggedCredits = 4;
     let draggedCourseName = '';
 
-    // ── Validate before submitting ─────────────────────────────
-    function validateAndSubmit() {
-        const credits = parseInt(document.getElementById('credit-display').textContent || '18');
+    // ── Auto-scroll during drag ────────────────────────────────────────────────
+    // When the user drags a course chip near the top or bottom edge of the
+    // browser window, the page automatically scrolls in that direction.
+    // This solves the problem of needing to drag from a course at the bottom
+    // of the page up to a semester slot near the top.
+    //
+    // How it works:
+    // - We track the mouse position during every dragover event
+    // - If the cursor is within 100px of the top edge, scroll up
+    // - If the cursor is within 100px of the bottom edge, scroll down
+    // - Scroll speed increases the closer you are to the edge (max 20px/frame)
+    // - scrollInterval runs every 16ms (~60fps) for smooth scrolling
+    // - When the drag ends (drop or cancel), the interval is cleared
 
-        // Enforce minimum 9 credits per semester
-        if (credits < 9) {
-            alert('❌ You must take at least 9 credits per semester to remain a full-time student.\n\nPlease increase your target credits before saving.');
-            // Snap slider back to 9 if somehow below
-            const slider = document.getElementById('credit-slider');
-            if (slider) {
-                slider.value = 9;
-                document.getElementById('credit-display').textContent = '9';
-                refreshAllSlotCredits();
+    let scrollInterval = null;      // holds the setInterval reference
+    let scrollDirection = 0;        // -1 = up, 0 = stopped, 1 = down
+    let scrollSpeed = 0;            // pixels to scroll per frame
+
+    const SCROLL_ZONE = 100;        // px from edge that triggers scrolling
+    const MAX_SCROLL_SPEED = 20;    // max px per frame
+
+    function startAutoScroll() {
+        // Only start one interval at a time
+        if (scrollInterval) return;
+        scrollInterval = setInterval(() => {
+            if (scrollDirection !== 0) {
+                window.scrollBy(0, scrollDirection * scrollSpeed);
             }
+        }, 16);
+    }
+
+    function stopAutoScroll() {
+        if (scrollInterval) {
+            clearInterval(scrollInterval);
+            scrollInterval = null;
+        }
+        scrollDirection = 0;
+        scrollSpeed = 0;
+    }
+
+    // Update scroll direction and speed based on current mouse Y position
+    function updateAutoScroll(clientY) {
+        const viewportHeight = window.innerHeight;
+        const distanceFromTop = clientY;
+        const distanceFromBottom = viewportHeight - clientY;
+
+        if (distanceFromTop < SCROLL_ZONE) {
+            // Near top edge — scroll up
+            // The closer to the edge, the faster the scroll
+            scrollDirection = -1;
+            scrollSpeed = Math.round(MAX_SCROLL_SPEED * (1 - distanceFromTop / SCROLL_ZONE));
+            startAutoScroll();
+        } else if (distanceFromBottom < SCROLL_ZONE) {
+            // Near bottom edge — scroll down
+            scrollDirection = 1;
+            scrollSpeed = Math.round(MAX_SCROLL_SPEED * (1 - distanceFromBottom / SCROLL_ZONE));
+            startAutoScroll();
+        } else {
+            // In the middle — stop scrolling
+            scrollDirection = 0;
+            scrollSpeed = 0;
+        }
+    }
+
+    // Listen for drag movement anywhere on the page to trigger auto-scroll
+    document.addEventListener('dragover', function(e) {
+        if (draggedCourseId) {
+            updateAutoScroll(e.clientY);
+        }
+    });
+
+    // Stop scrolling when the drag ends (successful drop or cancelled)
+    document.addEventListener('drop', stopAutoScroll);
+    document.addEventListener('dragend', stopAutoScroll);
+
+    // ── Snap a value to the nearest allowed credit option ─────────────────────
+    function snapToAllowed(val) {
+        return ALLOWED_CREDITS.reduce((prev, curr) =>
+            Math.abs(curr - val) < Math.abs(prev - val) ? curr : prev
+        );
+    }
+
+    // ── Handle slider input ───────────────────────────────────────────────────
+    function handleSliderInput(rawValue) {
+        const snapped = snapToAllowed(parseInt(rawValue));
+        document.getElementById('credit-display').textContent = snapped;
+        document.getElementById('credit-slider').value = snapped;
+        refreshAllSlotCredits();
+    }
+
+    // ── Validate before submitting ─────────────────────────────────────────────
+    function validateAndSubmit() {
+        const display = parseInt(document.getElementById('credit-display').textContent || '18');
+        const snapped = snapToAllowed(display);
+
+        if (snapped < 9) {
+            alert('❌ You must take at least 9 credits per semester.\n\nPlease increase your target credits before saving.');
+            document.getElementById('credit-slider').value = 9;
+            document.getElementById('credit-display').textContent = '9';
+            refreshAllSlotCredits();
             return;
         }
+
+        document.getElementById('credit-slider').value = snapped;
+        document.getElementById('credit-display').textContent = snapped;
 
         collectPinnedCourses();
         document.getElementById('preferences-form').submit();
     }
 
-    // ── Elective search ────────────────────────────────────────
+    // ── Elective search ────────────────────────────────────────────────────────
     function filterElectives(query) {
         const q = query.toLowerCase().trim();
         const clearBtn = document.getElementById('elective-search-clear');
@@ -344,15 +449,15 @@
         document.getElementById('elective-search').focus();
     }
 
-    // ── Semester season: odd = Fall, even = Spring ─────────────
+    // ── Semester helpers ───────────────────────────────────────────────────────
     function getSlotSeason(slotName) {
         const num = parseInt(slotName.replace('Semester ', ''));
         return num % 2 === 1 ? 'Fall' : 'Spring';
     }
 
-    // ── Credit helpers ─────────────────────────────────────────
+    // ── Credit helpers ─────────────────────────────────────────────────────────
     function getCreditLimit() {
-        return parseInt(document.getElementById('credit-display').textContent || '18');
+        return snapToAllowed(parseInt(document.getElementById('credit-display').textContent || '18'));
     }
 
     function getSlotCredits(slotEl) {
@@ -377,7 +482,7 @@
         });
     }
 
-    // ── Drag start from pool ───────────────────────────────────
+    // ── Drag start from pool ───────────────────────────────────────────────────
     function dragStart(event, courseId, courseCode, semesterOffered, credits, courseName) {
         draggedCourseId = courseId;
         draggedCourseCode = courseCode;
@@ -391,7 +496,7 @@
         event.dataTransfer.setData('courseName', courseName);
     }
 
-    // ── Drag start from slot chip ──────────────────────────────
+    // ── Drag start from slot chip ──────────────────────────────────────────────
     function dragStartSlot(event, courseId, courseCode, semesterOffered, credits, courseName) {
         draggedCourseId = courseId;
         draggedCourseCode = courseCode;
@@ -409,9 +514,11 @@
         event.preventDefault();
     }
 
-    // ── Drop course into a semester slot ───────────────────────
+    // ── Drop course into a semester slot ───────────────────────────────────────
     function dropToSlot(event, slotName) {
         event.preventDefault();
+        stopAutoScroll();
+
         const courseId = event.dataTransfer.getData('courseId');
         const courseCode = event.dataTransfer.getData('courseCode');
         const semesterOffered = event.dataTransfer.getData('semesterOffered');
@@ -419,7 +526,6 @@
         const courseName = event.dataTransfer.getData('courseName') || courseCode;
         if (!courseId) return;
 
-        // Semester validation
         const slotSeason = getSlotSeason(slotName);
         if (semesterOffered === 'Fall' && slotSeason === 'Spring') {
             alert(`❌ ${courseCode} is only offered in Fall.\nPlease drop it into an odd-numbered semester (1, 3, 5, 7).`);
@@ -436,7 +542,6 @@
 
         if (slotEl.querySelector(`[data-course-id="${courseId}"]`)) return;
 
-        // Credit limit check
         const currentCreditsExcludingThis = Array.from(slotEl.querySelectorAll('.slot-chip'))
             .filter(chip => chip.getAttribute('data-course-id') !== courseId)
             .reduce((sum, chip) => sum + parseInt(chip.getAttribute('data-credits') || '4'), 0);
@@ -447,18 +552,15 @@
             return;
         }
 
-        // Remove from any other slot
         document.querySelectorAll(`.slot-chip[data-course-id="${courseId}"]`).forEach(chip => {
             const oldSlot = chip.closest('.semester-slot');
             chip.remove();
             if (oldSlot) updateSlotCredits(oldSlot, oldSlot.dataset.slot);
         });
 
-        // Hide from pool
         const poolEl = document.getElementById('course-' + courseId);
         if (poolEl) poolEl.style.display = 'none';
 
-        // Create chip with tooltip
         const chip = document.createElement('div');
         chip.className = 'course-chip slot-chip mb-1';
         chip.setAttribute('data-course-id', courseId);
@@ -489,7 +591,7 @@
         draggedCourseName = '';
     }
 
-    // ── Remove chip from slot and restore to pool ──────────────
+    // ── Remove chip from slot and restore to pool ──────────────────────────────
     function removeFromSlot(el, courseId) {
         const chip = el.closest('.slot-chip');
         const slotEl = chip.closest('.semester-slot');
@@ -500,9 +602,11 @@
         if (poolEl) poolEl.style.display = '';
     }
 
-    // ── Drop back to pool ──────────────────────────────────────
+    // ── Drop back to pool ──────────────────────────────────────────────────────
     function dropToPool(event) {
         event.preventDefault();
+        stopAutoScroll();
+
         const courseId = event.dataTransfer.getData('courseId');
         if (!courseId) return;
 
@@ -518,7 +622,7 @@
         draggedCourseId = null;
     }
 
-    // ── Collect pinned courses before submitting ───────────────
+    // ── Collect pinned courses into hidden inputs before submitting ────────────
     function collectPinnedCourses() {
         const container = document.getElementById('pinned-inputs');
         container.innerHTML = '';
@@ -540,9 +644,18 @@
         });
     }
 
-    // ── On page load ───────────────────────────────────────────
+    // ── On page load ───────────────────────────────────────────────────────────
     document.addEventListener('DOMContentLoaded', function () {
-        // Hide pool chips for already-pinned courses
+
+        // Snap the slider display to the nearest allowed value on load
+        const slider = document.getElementById('credit-slider');
+        if (slider) {
+            const snapped = snapToAllowed(parseInt(slider.value));
+            slider.value = snapped;
+            document.getElementById('credit-display').textContent = snapped;
+        }
+
+        // Hide pool chips for courses already pinned to a slot
         {% for pinned in pinned_courses %}
         const poolEl{{ forloop.counter }} = document.getElementById('course-{{ pinned.course.id }}');
         if (poolEl{{ forloop.counter }}) poolEl{{ forloop.counter }}.style.display = 'none';
@@ -553,15 +666,13 @@
             updateSlotCredits(slot, slot.dataset.slot);
         });
 
-        // Prevent slider from going below 9 via keyboard
-        const slider = document.getElementById('credit-slider');
+        // Prevent slider from going below 9 via keyboard arrow keys
         if (slider) {
             slider.addEventListener('change', function() {
-                if (parseInt(this.value) < 9) {
-                    this.value = 9;
-                    document.getElementById('credit-display').textContent = '9';
-                    refreshAllSlotCredits();
-                }
+                const snapped = snapToAllowed(parseInt(this.value));
+                this.value = snapped;
+                document.getElementById('credit-display').textContent = snapped;
+                refreshAllSlotCredits();
             });
         }
     });

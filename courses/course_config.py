@@ -1,7 +1,4 @@
-# ============================================================
 # course_config.py
-# Located at: courses/course_config.py
-#
 # This file maps all CSC course prerequisites based on the
 # Florida Southern College academic catalog.
 #
@@ -9,9 +6,8 @@
 #   COURSE_PREREQUISITES = {
 #       'COURSE_CODE': ['PREREQ_CODE', 'PREREQ_CODE', ...],
 #   }
-#
 # An empty list means the course has no prerequisites.
-# ============================================================
+
 
 COURSE_PREREQUISITES = {
 
@@ -65,10 +61,9 @@ COURSE_PREREQUISITES = {
 }
 
 
-# ============================================================
 # DEGREE REQUIREMENTS
 # Core required courses for the CS major
-# ============================================================
+
 
 CS_CORE_REQUIRED = [
     'CSC1980',
